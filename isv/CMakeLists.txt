@@ -18,12 +18,6 @@ enclave_sign(Enclave
         KEY ./Enclave/Enclave_private.pem
         CONFIG ./Enclave/Enclave.config.xml)
 
-# build untrusted executable to run with enclave
-add_untrusted_executable(client
-        SRCS client.cpp
-        EDL ./Enclave/Enclave.edl
-        EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
-
 ## build untrusted library to be run with enclave
 #add_untrusted_library(target
 #        STATIC | SHARED | MODULE

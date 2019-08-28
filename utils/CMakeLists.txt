@@ -1,4 +1,5 @@
 add_library(msgio msgio.h msgio.cpp)
+add_library(fileio fileio.h fileio.cpp)
 
 add_library(common common.h common.cpp)
 add_library(logfile logfile.h logfile.c)

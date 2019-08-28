@@ -19,7 +19,8 @@ in the License.
 using namespace std;
 
 
-#include "config.h"
+//FIXME: #include "config.h"
+
 #include "Enclave_u.h"
 
 #if !defined(SGX_HW_SIM) && !defined(_WIN32)
