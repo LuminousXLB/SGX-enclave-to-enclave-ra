@@ -3,10 +3,16 @@ project(SGX_enclave_to_enclave_ra)
 
 set(CMAKE_CXX_STANDARD 14)
 
+
+# Intel SGX
+find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
+
 # Intel SGX
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(SGX REQUIRED)
 include_directories(${SGX_INCLUDE_DIR})
+
 
 # Common
 #add_subdirectory(protocol)
@@ -16,15 +22,22 @@ include_directories(protocol)
 add_subdirectory(utils)
 include_directories(utils)
 
+# Crypto
 add_subdirectory(crypto)
+include_directories(crypto)
+
+# ISV
 add_subdirectory(isv)
 
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(client
-        SRCS ./isv/client.cpp
+        SRCS ./isv/client.cpp ./isv/quote_size.c ./isv/sgx_detect_linux.c ./isv/sgx_stub.c
         EDL ./isv/Enclave/Enclave.edl
         EDL_SEARCH_PATHS ./isv/Enclave})
+
+target_link_libraries(client msgio common fileio logfile hexutil base64 crypto dl sgx_capable)
+target_compile_options(client PRIVATE -Wno-pointer-to-int-cast)
 
 #add_executable(main main.cpp)
 
