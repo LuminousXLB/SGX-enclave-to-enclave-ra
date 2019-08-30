@@ -1,3 +1,6 @@
+message(STATUS I'm here)
+message(STATUS include - ${CMAKE_INCLUDE_PATH})
+
 add_library(msgio msgio.h msgio.cpp)
 add_library(fileio fileio.h fileio.c)
 

@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
-find_package(SGX REQUIRED)
-include_directories(${SGX_INCLUDE_DIR})
-
 set(EDL_SEARCH_PATHS ./Enclave)
 
 # build enclave library
