@@ -16,8 +16,6 @@ include_directories(${SGX_INCLUDE_DIR})
 #add_subdirectory(protocol)
 include_directories(protocol)
 
-message(STATUS I'm here)
-
 # Utils
 add_subdirectory(utils)
 include_directories(utils)
@@ -29,17 +27,3 @@ include_directories(crypto)
 # ISV
 add_subdirectory(isv)
 
-
-# build untrusted executable to run with enclave
-add_untrusted_executable(client
-        SRCS ./isv/client.cpp ./isv/quote_size.c ./isv/sgx_detect_linux.c ./isv/sgx_stub.c
-        EDL ./isv/Enclave/Enclave.edl
-        EDL_SEARCH_PATHS ./isv/Enclave})
-
-target_link_libraries(client msgio common fileio logfile hexutil base64 crypto dl sgx_capable)
-target_compile_options(client PRIVATE -Wno-pointer-to-int-cast)
-
-#add_executable(main main.cpp)
-
-#add_subdirectory(service_provider/ias_request)
-#target_link_libraries(main service_provider/ias_request)

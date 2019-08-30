@@ -21,3 +21,13 @@ enclave_sign(Enclave
 #        SRCS src1 src2 ...
 #        EDL edl_file1 edl_file2 ...
 #        EDL_SEARCH_PATHS path1 path2 ...)
+
+# build untrusted executable to run with enclave
+add_untrusted_executable(client
+        SRCS client.cpp quote_size.c sgx_detect_linux.c sgx_stub.c
+        EDL Enclave/Enclave.edl
+        EDL_SEARCH_PATHS Enclave})
+
+target_link_libraries(client msgio common fileio logfile hexutil base64 crypto dl)
+target_link_libraries(client sgx_urts ${SGX_LIBRARY_PATH}/libsgx_capable.a)
+target_compile_options(client PRIVATE -Wno-pointer-to-int-cast)

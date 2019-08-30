@@ -15,9 +15,8 @@ in the License.
 
 */
 
-#ifndef _WIN32
-#include "../config.h"
-#endif
+//#include "../config.h"
+
 #include "Enclave_t.h"
 #include <string.h>
 #include <sgx_utils.h>

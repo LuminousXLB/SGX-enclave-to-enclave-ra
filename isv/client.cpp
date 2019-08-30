@@ -76,8 +76,7 @@ typedef struct config_struct {
     char *port;
 } config_t;
 
-int file_in_searchpath(const char *file, const char *search, char *fullpath,
-                       size_t len);
+int file_in_searchpath(const char *file, const char *search, char *fullpath, size_t len);
 
 sgx_status_t sgx_create_enclave_search(
         const char *filename,
@@ -97,26 +96,22 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config);
 char debug = 0;
 char verbose = 0;
 
-#define MODE_ATTEST 0x0
-#define MODE_EPID    0x1
-#define MODE_QUOTE    0x2
+#define MODE_ATTEST     0x0
+#define MODE_EPID       0x1
+#define MODE_QUOTE      0x2
 
-#define OPT_PSE        0x01
-#define OPT_NONCE    0x02
-#define OPT_LINK    0x04
-#define OPT_PUBKEY    0x08
+#define OPT_PSE         0x01
+#define OPT_NONCE       0x02
+#define OPT_LINK        0x04
+#define OPT_PUBKEY      0x08
 
 /* Macros to set, clear, and get the mode and options */
 
-#define SET_OPT(x, y)    x|=y
-#define CLEAR_OPT(x, y)    x=x&~y
-#define OPT_ISSET(x, y)    x&y
+#define SET_OPT(x, y)   x|=y
+#define CLEAR_OPT(x, y) x=x&~y
+#define OPT_ISSET(x, y) x&y
 
-#ifdef _WIN32
-# define ENCLAVE_NAME "Enclave.signed.dll"
-#else
-# define ENCLAVE_NAME "Enclave.signed.so"
-#endif
+#define ENCLAVE_NAME    "Enclave.signed.so"
 
 int main(int argc, char *argv[]) {
     config_t config;
@@ -137,17 +132,13 @@ int main(int argc, char *argv[]) {
     const time_t timeT = time(NULL);
     struct tm lt, *ltp;
 
-#ifndef _WIN32
     ltp = localtime(&timeT);
     if (ltp == NULL) {
         perror("localtime");
         return 1;
     }
     lt = *ltp;
-#else
 
-    localtime_s(&lt, &timeT);
-#endif
     fprintf(fplog, "%4d-%02d-%02d %02d:%02d:%02d\n",
             lt.tm_year + 1900,
             lt.tm_mon + 1,
@@ -156,7 +147,6 @@ int main(int argc, char *argv[]) {
             lt.tm_min,
             lt.tm_sec);
     divider(fplog);
-
 
     memset(&config, 0, sizeof(config));
     config.mode = MODE_ATTEST;
@@ -375,17 +365,7 @@ int main(int argc, char *argv[]) {
 
     /* Launch the enclave */
 
-#ifdef _WIN32
-    status = sgx_create_enclave(ENCLAVE_NAME, SGX_DEBUG_FLAG,
-        &token, &updated, &eid, 0);
-    if (status != SGX_SUCCESS) {
-        fprintf(stderr, "sgx_create_enclave: %s: %08x\n",
-            ENCLAVE_NAME, status);
-        return 1;
-    }
-#else
-    status = sgx_create_enclave_search(ENCLAVE_NAME,
-                                       SGX_DEBUG_FLAG, &token, &updated, &eid, 0);
+    status = sgx_create_enclave_search(ENCLAVE_NAME, SGX_DEBUG_FLAG, &token, &updated, &eid, 0);
     if (status != SGX_SUCCESS) {
         fprintf(stderr, "sgx_create_enclave: %s: %08x\n",
                 ENCLAVE_NAME, status);
@@ -393,7 +373,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Did you forget to set LD_LIBRARY_PATH?\n");
         return 1;
     }
-#endif
 
     /* Are we attesting, or just spitting out a quote? */
 
@@ -405,7 +384,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unknown operation mode.\n");
         return 1;
     }
-
 
     close_logfile(fplog);
 
@@ -1103,6 +1081,7 @@ sgx_status_t sgx_create_enclave_search(const char *filename, const int edebug,
     if (file_in_searchpath(filename, DEF_LIB_SEARCHPATH, epath, PATH_MAX))
         return sgx_create_enclave(epath, edebug, token, updated, eid, attr);
 
+    eprintf("%s is not in current working directory, and we don't know where it is.", filename);
     /*
      * If we've made it this far then we don't know where else to look.
      * Just call sgx_create_enclave() which assumes the enclave is in
