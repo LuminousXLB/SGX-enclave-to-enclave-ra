@@ -31,3 +31,4 @@ add_untrusted_executable(client
 target_link_libraries(client msgio common fileio logfile hexutil base64 crypto dl)
 target_link_libraries(client sgx_urts ${SGX_LIBRARY_PATH}/libsgx_capable.a)
 target_compile_options(client PRIVATE -Wno-pointer-to-int-cast)
+add_dependencies(client Enclave-sign)
