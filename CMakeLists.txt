@@ -24,6 +24,7 @@ include_directories(utils)
 add_subdirectory(crypto)
 include_directories(crypto)
 
-# ISV
+# client
 add_subdirectory(isv)
-
+# server
+add_subdirectory(service_provider)
