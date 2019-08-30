@@ -28,6 +28,7 @@ using namespace std;
 #include <string>
 #include <map>
 #include <vector>
+#define AGENT_WGET
 
 #ifndef IAS_API_DEF_VERSION
 #define IAS_API_DEF_VERSION         3
@@ -145,9 +146,9 @@ public:
     string proxy_url();
 
 
-    void ca_bundle(const char *file) { c_ca_file = file; }
+    // void ca_bundle(const char *file) { c_ca_file = file; }
 
-    string ca_bundle() { return c_ca_file; }
+    // string ca_bundle() { return c_ca_file; }
 
     /* Internal cert store for verifying the IAS Signing certificate */
     void cert_store(X509_STORE *store) { c_store = store; }

@@ -17,7 +17,6 @@ in the License.
 
 
 //#include "config.h"
-#define DEFAULT_CA_BUNDLE
 #include <stdlib.h>
 #include <limits.h>
 #include <stdio.h>
@@ -78,7 +77,7 @@ typedef struct config_struct {
     uint16_t quote_type;
     EVP_PKEY *service_private_key;
     char *proxy_server;
-    char *ca_bundle;
+    // char *ca_bundle;
     char *user_agent;
     unsigned int proxy_port;
     unsigned char kdk[16];
@@ -231,14 +230,14 @@ int main(int argc, char *argv[]) {
 
                 break;
 
-            case 'B':
-                config.ca_bundle = strdup(optarg);
-                if (config.ca_bundle == NULL) {
-                    perror("strdup");
-                    return 1;
-                }
+            // case 'B':
+            //     config.ca_bundle = strdup(optarg);
+            //     if (config.ca_bundle == NULL) {
+            //         perror("strdup");
+            //         return 1;
+            //     }
 
-                break;
+            //     break;
 
             case 'D':
                 config.allow_debug_enclave = 0;
@@ -490,16 +489,16 @@ int main(int argc, char *argv[]) {
 
     /* Use the default CA bundle unless one is provided */
 
-    if (config.ca_bundle == NULL) {
-        config.ca_bundle = strdup(DEFAULT_CA_BUNDLE);
-        if (config.ca_bundle == NULL) {
-            perror("strdup");
-            return 1;
-        }
-        if (debug)
-            eprintf("+++ Using default CA bundle %s\n",
-                    config.ca_bundle);
-    }
+    // if (config.ca_bundle == NULL) {
+    //     config.ca_bundle = strdup(DEFAULT_CA_BUNDLE);
+    //     if (config.ca_bundle == NULL) {
+    //         perror("strdup");
+    //         return 1;
+    //     }
+    //     if (debug)
+    //         eprintf("+++ Using default CA bundle %s\n",
+    //                 config.ca_bundle);
+    // }
 
     /*
      * Use the hardcoded default key unless one is provided on the
@@ -599,7 +598,7 @@ int main(int argc, char *argv[]) {
      * for the TLS session. If this isn't set, then the user agent
      * will fall back to it's default.
      */
-    if (strlen(config.ca_bundle)) ias->ca_bundle(config.ca_bundle);
+    // if (strlen(config.ca_bundle)) ias->ca_bundle(config.ca_bundle);
 
     /* Get our message IO object. */
 
@@ -1655,9 +1654,9 @@ void usage() {
          "                           Set the IAS Secondary Subscription Key from a" NL
          "                           32-byte ASCII hex string." NNL
          "Optional:" NL
-         "  -B, --ca-bundle-file=FILE" NL
-         "                           Use the CA certificate bundle at FILE (default:" NL
-         "                           " << DEFAULT_CA_BUNDLE << ")" NNL
+        //  "  -B, --ca-bundle-file=FILE" NL
+        //  "                           Use the CA certificate bundle at FILE (default:" NL
+        //  "                           " << DEFAULT_CA_BUNDLE << ")" NNL
          "  -D, --no-debug-enclave   Reject Debug-mode enclaves (default: accept)" NNL
          "  -G, --list-agents        List available user agent names for --user-agent" NNL
          "  -K, --service-key-file=FILE" NL
