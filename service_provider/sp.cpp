@@ -230,14 +230,14 @@ int main(int argc, char *argv[]) {
 
                 break;
 
-            // case 'B':
-            //     config.ca_bundle = strdup(optarg);
-            //     if (config.ca_bundle == NULL) {
-            //         perror("strdup");
-            //         return 1;
-            //     }
+                // case 'B':
+                //     config.ca_bundle = strdup(optarg);
+                //     if (config.ca_bundle == NULL) {
+                //         perror("strdup");
+                //         return 1;
+                //     }
 
-            //     break;
+                //     break;
 
             case 'D':
                 config.allow_debug_enclave = 0;
@@ -642,9 +642,7 @@ int main(int argc, char *argv[]) {
 
         /* Read message 0 and 1, then generate message 2 */
 
-        if (!process_msg01(msgio, ias, &msg1, &msg2, &sigrl, &config,
-                           &session)) {
-
+        if (!process_msg01(msgio, ias, &msg1, &msg2, &sigrl, &config, &session)) {
             eprintf("error processing msg1\n");
             goto disconnect;
         }
@@ -687,8 +685,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
-                 ra_msg4_t *msg4, config_t *config, ra_session_t *session) {
+int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4_t *msg4, config_t *config,
+                 ra_session_t *session) {
     sgx_ra_msg3_t *msg3;
     size_t blen = 0;
     size_t sz;
@@ -744,14 +742,10 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
 
     if (debug) {
         eprintf("+++ Verifying msg3.g_a matches msg1.g_a\n");
-        eprintf("msg1.g_a.gx = %s\n",
-                hexstring(msg3->g_a.gx, sizeof(msg1->g_a.gx)));
-        eprintf("msg1.g_a.gy = %s\n",
-                hexstring(&msg3->g_a.gy, sizeof(msg1->g_a.gy)));
-        eprintf("msg3.g_a.gx = %s\n",
-                hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
-        eprintf("msg3.g_a.gy = %s\n",
-                hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
+        eprintf("msg1.g_a.gx = %s\n", hexstring(msg3->g_a.gx, sizeof(msg1->g_a.gx)));
+        eprintf("msg1.g_a.gy = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg1->g_a.gy)));
+        eprintf("msg3.g_a.gx = %s\n", hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
+        eprintf("msg3.g_a.gy = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
     }
     if (CRYPTO_memcmp(&msg3->g_a, &msg1->g_a, sizeof(sgx_ec256_public_t))) {
         eprintf("msg1.g_a and mgs3.g_a keys don't match\n");
@@ -788,34 +782,20 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
     if (verbose) {
 
         edividerWithText("Msg3 Details (from Client)");
-        eprintf("msg3.mac                 = %s\n",
-                hexstring(&msg3->mac, sizeof(msg3->mac)));
-        eprintf("msg3.g_a.gx              = %s\n",
-                hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
-        eprintf("msg3.g_a.gy              = %s\n",
-                hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
-        eprintf("msg3.ps_sec_prop         = %s\n",
-                hexstring(&msg3->ps_sec_prop, sizeof(msg3->ps_sec_prop)));
-        eprintf("msg3.quote.version       = %s\n",
-                hexstring(&q->version, sizeof(uint16_t)));
-        eprintf("msg3.quote.sign_type     = %s\n",
-                hexstring(&q->sign_type, sizeof(uint16_t)));
-        eprintf("msg3.quote.epid_group_id = %s\n",
-                hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
-        eprintf("msg3.quote.qe_svn        = %s\n",
-                hexstring(&q->qe_svn, sizeof(sgx_isv_svn_t)));
-        eprintf("msg3.quote.pce_svn       = %s\n",
-                hexstring(&q->pce_svn, sizeof(sgx_isv_svn_t)));
-        eprintf("msg3.quote.xeid          = %s\n",
-                hexstring(&q->xeid, sizeof(uint32_t)));
-        eprintf("msg3.quote.basename      = %s\n",
-                hexstring(&q->basename, sizeof(sgx_basename_t)));
-        eprintf("msg3.quote.report_body   = %s\n",
-                hexstring(&q->report_body, sizeof(sgx_report_body_t)));
-        eprintf("msg3.quote.signature_len = %s\n",
-                hexstring(&q->signature_len, sizeof(uint32_t)));
-        eprintf("msg3.quote.signature     = %s\n",
-                hexstring(&q->signature, q->signature_len));
+        eprintf("msg3.mac                 = %s\n", hexstring(&msg3->mac, sizeof(msg3->mac)));
+        eprintf("msg3.g_a.gx              = %s\n", hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
+        eprintf("msg3.g_a.gy              = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
+        eprintf("msg3.ps_sec_prop         = %s\n", hexstring(&msg3->ps_sec_prop, sizeof(msg3->ps_sec_prop)));
+        eprintf("msg3.quote.version       = %s\n", hexstring(&q->version, sizeof(uint16_t)));
+        eprintf("msg3.quote.sign_type     = %s\n", hexstring(&q->sign_type, sizeof(uint16_t)));
+        eprintf("msg3.quote.epid_group_id = %s\n", hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
+        eprintf("msg3.quote.qe_svn        = %s\n", hexstring(&q->qe_svn, sizeof(sgx_isv_svn_t)));
+        eprintf("msg3.quote.pce_svn       = %s\n", hexstring(&q->pce_svn, sizeof(sgx_isv_svn_t)));
+        eprintf("msg3.quote.xeid          = %s\n", hexstring(&q->xeid, sizeof(uint32_t)));
+        eprintf("msg3.quote.basename      = %s\n", hexstring(&q->basename, sizeof(sgx_basename_t)));
+        eprintf("msg3.quote.report_body   = %s\n", hexstring(&q->report_body, sizeof(sgx_report_body_t)));
+        eprintf("msg3.quote.signature_len = %s\n", hexstring(&q->signature_len, sizeof(uint32_t)));
+        eprintf("msg3.quote.signature     = %s\n", hexstring(&q->signature, q->signature_len));
 
         edividerWithText("Enclave Quote (base64) ==> Send to IAS");
 
@@ -829,10 +809,8 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
 
     if (debug) {
         eprintf("+++ Validating quote's epid_group_id against msg1\n");
-        eprintf("msg1.egid = %s\n",
-                hexstring(msg1->gid, sizeof(sgx_epid_group_id_t)));
-        eprintf("msg3.quote.epid_group_id = %s\n",
-                hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
+        eprintf("msg1.egid = %s\n", hexstring(msg1->gid, sizeof(sgx_epid_group_id_t)));
+        eprintf("msg3.quote.epid_group_id = %s\n", hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
     }
 
     if (memcmp(msg1->gid, &q->epid_group_id, sizeof(sgx_epid_group_id_t))) {
@@ -843,8 +821,7 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
     }
 
 
-    if (get_attestation_report(ias, config->apiver, b64quote,
-                               msg3->ps_sec_prop, msg4, config->strict_trust)) {
+    if (get_attestation_report(ias, config->apiver, b64quote, msg3->ps_sec_prop, msg4, config->strict_trust)) {
 
         unsigned char vfy_rdata[64];
         unsigned char msg_rdata[144]; /* for Ga || Gb || VK */
@@ -1330,7 +1307,7 @@ int get_attestation_report(IAS_Connection *ias, int version,
                            int strict_trust) {
     IAS_Request *req = NULL;
     map<string, string> payload;
-    vector <string> messages;
+    vector<string> messages;
     ias_error_t status;
     string content;
 
@@ -1654,9 +1631,9 @@ void usage() {
          "                           Set the IAS Secondary Subscription Key from a" NL
          "                           32-byte ASCII hex string." NNL
          "Optional:" NL
-        //  "  -B, --ca-bundle-file=FILE" NL
-        //  "                           Use the CA certificate bundle at FILE (default:" NL
-        //  "                           " << DEFAULT_CA_BUNDLE << ")" NNL
+         //  "  -B, --ca-bundle-file=FILE" NL
+         //  "                           Use the CA certificate bundle at FILE (default:" NL
+         //  "                           " << DEFAULT_CA_BUNDLE << ")" NNL
          "  -D, --no-debug-enclave   Reject Debug-mode enclaves (default: accept)" NNL
          "  -G, --list-agents        List available user agent names for --user-agent" NNL
          "  -K, --service-key-file=FILE" NL

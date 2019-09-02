@@ -89,7 +89,7 @@ sgx_status_t sgx_create_enclave_search(
 
 void usage();
 
-int do_quote(sgx_enclave_id_t eid, config_t *config);
+//int do_quote(sgx_enclave_id_t eid, config_t *config);
 
 int do_attestation(sgx_enclave_id_t eid, config_t *config);
 
@@ -378,8 +378,8 @@ int main(int argc, char *argv[]) {
 
     if (config.mode == MODE_ATTEST) {
         do_attestation(eid, &config);
-    } else if (config.mode == MODE_EPID || config.mode == MODE_QUOTE) {
-        do_quote(eid, &config);
+//    } else if (config.mode == MODE_EPID || config.mode == MODE_QUOTE) {
+//        do_quote(eid, &config);
     } else {
         fprintf(stderr, "Unknown operation mode.\n");
         return 1;
@@ -410,8 +410,7 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         msgio = new MsgIO();
     } else {
         try {
-            msgio = new MsgIO(config->server, (config->port == NULL) ?
-                                              DEFAULT_PORT : config->port);
+            msgio = new MsgIO(config->server, (config->port == NULL) ? DEFAULT_PORT : config->port);
         }
         catch (...) {
             exit(1);
@@ -431,12 +430,10 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
 
     if (OPT_ISSET(flags, OPT_PUBKEY)) {
         if (debug) fprintf(stderr, "+++ using supplied public key\n");
-        status = enclave_ra_init(eid, &sgxrv, config->pubkey, b_pse,
-                                 &ra_ctx, &pse_status);
+        status = enclave_ra_init(eid, &sgxrv, config->pubkey, b_pse, &ra_ctx, &pse_status);
     } else {
         if (debug) fprintf(stderr, "+++ using default public key\n");
-        status = enclave_ra_init_def(eid, &sgxrv, b_pse, &ra_ctx,
-                                     &pse_status);
+        status = enclave_ra_init_def(eid, &sgxrv, b_pse, &ra_ctx, &pse_status);
     }
 
     /* Did the ECALL succeed? */
@@ -476,10 +473,8 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         dividerWithText(fplog, "Msg0 Details");
         fprintf(stderr, "Extended Epid Group ID: ");
         fprintf(fplog, "Extended Epid Group ID: ");
-        print_hexstring(stderr, &msg0_extended_epid_group_id,
-                        sizeof(uint32_t));
-        print_hexstring(fplog, &msg0_extended_epid_group_id,
-                        sizeof(uint32_t));
+        print_hexstring(stderr, &msg0_extended_epid_group_id, sizeof(uint32_t));
+        print_hexstring(fplog, &msg0_extended_epid_group_id, sizeof(uint32_t));
         fprintf(stderr, "\n");
         fprintf(fplog, "\n");
         divider(stderr);
@@ -531,14 +526,12 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
      */
 
     dividerWithText(fplog, "Msg0||Msg1 ==> SP");
-    fsend_msg_partial(fplog, &msg0_extended_epid_group_id,
-                      sizeof(msg0_extended_epid_group_id));
+    fsend_msg_partial(fplog, &msg0_extended_epid_group_id, sizeof(msg0_extended_epid_group_id));
     fsend_msg(fplog, &msg1, sizeof(msg1));
     divider(fplog);
 
     dividerWithText(stderr, "Copy/Paste Msg0||Msg1 Below to SP");
-    msgio->send_partial(&msg0_extended_epid_group_id,
-                        sizeof(msg0_extended_epid_group_id));
+    msgio->send_partial(&msg0_extended_epid_group_id, sizeof(msg0_extended_epid_group_id));
     msgio->send(&msg1, sizeof(msg1));
     divider(stderr);
 
@@ -609,10 +602,8 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
     }
 
     if (debug) {
-        fprintf(stderr, "+++ msg2_size = %zu\n",
-                sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
-        fprintf(fplog, "+++ msg2_size = %zu\n",
-                sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
+        fprintf(stderr, "+++ msg2_size = %zu\n", sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
+        fprintf(fplog, "+++ msg2_size = %zu\n", sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
     }
 
     /* Process Msg2, Get Msg3  */
@@ -658,10 +649,8 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         print_hexstring(fplog, msg3->g_a.gy, sizeof(msg3->g_a.gy));
         fprintf(stderr, "\nmsg3.ps_sec_prop.sgx_ps_sec_prop_desc = ");
         fprintf(fplog, "\nmsg3.ps_sec_prop.sgx_ps_sec_prop_desc = ");
-        print_hexstring(stderr, msg3->ps_sec_prop.sgx_ps_sec_prop_desc,
-                        sizeof(msg3->ps_sec_prop.sgx_ps_sec_prop_desc));
-        print_hexstring(fplog, msg3->ps_sec_prop.sgx_ps_sec_prop_desc,
-                        sizeof(msg3->ps_sec_prop.sgx_ps_sec_prop_desc));
+        print_hexstring(stderr, msg3->ps_sec_prop.sgx_ps_sec_prop_desc, sizeof(msg3->ps_sec_prop.sgx_ps_sec_prop_desc));
+        print_hexstring(fplog, msg3->ps_sec_prop.sgx_ps_sec_prop_desc, sizeof(msg3->ps_sec_prop.sgx_ps_sec_prop_desc));
         fprintf(fplog, "\n");
         fprintf(stderr, "\nmsg3.quote       = ");
         fprintf(fplog, "\nmsg3.quote       = ");
@@ -741,8 +730,7 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
 
         /* We have a PIB, so check to see if there are actions to take */
         sgx_update_info_bit_t update_info;
-        sgx_status_t ret = sgx_report_attestation_status(&msg4->platformInfoBlob,
-                                                         enclaveTrusted, &update_info);
+        sgx_status_t ret = sgx_report_attestation_status(&msg4->platformInfoBlob, enclaveTrusted, &update_info);
 
         if (debug) eprintf("+++ sgx_report_attestation_status ret = 0x%04x\n", ret);
 
@@ -785,21 +773,17 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         // First the MK
 
         if (debug) eprintf("+++ fetching SHA256(MK)\n");
-        status = enclave_ra_get_key_hash(eid, &sha_status, &key_status, ra_ctx,
-                                         SGX_RA_KEY_MK, &mkhash);
+        status = enclave_ra_get_key_hash(eid, &sha_status, &key_status, ra_ctx, SGX_RA_KEY_MK, &mkhash);
         if (debug)
-            eprintf("+++ ECALL enclage_ra_get_key_hash (MK) ret= 0x%04x\n",
-                    status);
+            eprintf("+++ ECALL enclage_ra_get_key_hash (MK) ret= 0x%04x\n", status);
 
         if (debug) eprintf("+++ sgx_ra_get_keys (MK) ret= 0x%04x\n", key_status);
         // Then the SK
 
         if (debug) eprintf("+++ fetching SHA256(SK)\n");
-        status = enclave_ra_get_key_hash(eid, &sha_status, &key_status, ra_ctx,
-                                         SGX_RA_KEY_SK, &skhash);
+        status = enclave_ra_get_key_hash(eid, &sha_status, &key_status, ra_ctx, SGX_RA_KEY_SK, &skhash);
         if (debug)
-            eprintf("+++ ECALL enclage_ra_get_key_hash (MK) ret= 0x%04x\n",
-                    status);
+            eprintf("+++ ECALL enclage_ra_get_key_hash (MK) ret= 0x%04x\n", status);
 
         if (debug) eprintf("+++ sgx_ra_get_keys (MK) ret= 0x%04x\n", key_status);
         if (verbose) {
@@ -822,6 +806,7 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
     return 0;
 }
 
+#if 0
 /*----------------------------------------------------------------------
  * do_quote()
  *
@@ -888,8 +873,7 @@ int do_quote(sgx_enclave_id_t eid, config_t *config) {
 
         status = get_pse_manifest_size(eid, &pse_manifest_sz);
         if (status != SGX_SUCCESS) {
-            fprintf(stderr, "get_pse_manifest_size: %08x\n",
-                    status);
+            fprintf(stderr, "get_pse_manifest_size: %08x\n", status);
             return 1;
         }
 
@@ -897,13 +881,11 @@ int do_quote(sgx_enclave_id_t eid, config_t *config) {
 
         status = get_pse_manifest(eid, &sgxrv, pse_manifest, pse_manifest_sz);
         if (status != SGX_SUCCESS) {
-            fprintf(stderr, "get_pse_manifest: %08x\n",
-                    status);
+            fprintf(stderr, "get_pse_manifest: %08x\n", status);
             return 1;
         }
         if (sgxrv != SGX_SUCCESS) {
-            fprintf(stderr, "get_sec_prop_desc_ex: %08x\n",
-                    sgxrv);
+            fprintf(stderr, "get_sec_prop_desc_ex: %08x\n", sgxrv);
             return 1;
         }
     }
@@ -1043,7 +1025,7 @@ int do_quote(sgx_enclave_id_t eid, config_t *config) {
     return 0;
 
 }
-
+#endif
 /*
  * Search for the enclave file and then try and load it.
  */
