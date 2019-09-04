@@ -7,9 +7,10 @@ enclave {
 
 	untrusted {
 	    void ocall_pre_get_sigrl([in, isary] sgx_epid_group_id_t gid, [out] sgx_spid_t* spid, [out] sgx_quote_sign_type_t* quote_type, [out, count=1] uint32_t *sigrl_length);
-        void ocall_get_sigrl(uint32_t sigrl_size, [out, size=sigrl_size] uint8_t *sigrl);
+        void ocall_get_sigrl(uint32_t sigrl_size, [out, size=sigrl_size] uint8_t *sigrl_buffer);
 
-        uint32_t ocall_get_msg3(sgx_ra_msg2_t msg2, [out] sgx_ra_msg3_t *msg3);
+        void ocall_pre_get_msg3(sgx_ra_msg2_t msg2, [out] uint32_t *msg3_length);
+        void ocall_get_msg3(uint32_t msg3_size, [out, size=msg3_size] uint8_t *msg3_buffer);
 
 	    /* public <ret> ocall_get_msg3(gid) */
 	    /* public <ret> ocall_get_sigrl(gid) */

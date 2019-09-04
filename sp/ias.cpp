@@ -9,10 +9,9 @@ extern char verbose;
 
 using namespace json;
 
-int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, char **sig_rl, uint32_t *sig_rl_size) {
+int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, string& sig_rl) {
     IAS_Request *req = nullptr;
     int oops = 1;
-    string sigrlstr;
 
     try {
         oops = 0;
@@ -32,7 +31,7 @@ int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, c
 
     while (true) {
 
-        ret = req->sigrl(*(uint32_t *) gid, sigrlstr);
+        ret = req->sigrl(*(uint32_t *) gid, sig_rl);
         if (debug) {
             eprintf("+++ RET = %zu\n, ret");
             eprintf("+++ SubscriptionKeyID = %d\n", (int) ias->getSubscriptionKeyID());
@@ -56,15 +55,6 @@ int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, c
 
         break;
     }
-
-
-    *sig_rl = strdup(sigrlstr.c_str());
-    if (*sig_rl == NULL) {
-        delete req;
-        return 0;
-    }
-
-    *sig_rl_size = (uint32_t) sigrlstr.length();
 
     delete req;
 

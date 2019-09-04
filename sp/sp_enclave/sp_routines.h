@@ -10,19 +10,21 @@ using namespace std;
 typedef struct ra_secret_struct {
     sgx_ec256_private_t private_b;
     sgx_ec256_public_t public_b;
+    sgx_ec256_public_t public_a;    // msg1
+    sgx_epid_group_id_t client_gid; // msg1
     sgx_ec256_dh_shared_t shared_secret;
     sgx_cmac_128bit_key_t smk;
-    sgx_ec256_public_t public_a;
-    sgx_epid_group_id_t client_gid;
 } ra_secret_t;
 
 #define check_sgx_status(status) if(status != SGX_SUCCESS) return status;
 
-sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_status_t *status);
+sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_status_t *att_status);
 
-sgx_status_t private_proc_msg1(ra_secret_t &secret, sgx_ra_msg1_t *msg1, attestation_status_t *status);
+sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_status_t *att_status);
 
-sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t& spid,const sgx_quote_sign_type_t& quote_type,
+sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
                                 const vector<uint8_t> &sigrl, sgx_ra_msg2_t &msg2);
+
+sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_status_t *att_status);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H

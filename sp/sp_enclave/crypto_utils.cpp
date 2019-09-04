@@ -67,7 +67,7 @@ sgx_status_t ecdh_shared_secret(sgx_ec256_private_t &privkey, sgx_ec256_public_t
     return status;
 }
 
-sgx_status_t ecdsa(sgx_ec256_private_t &privkey, const std::vector<uint8_t> &data, sgx_ec256_signature_t &signature) {
+sgx_status_t ecdsa(sgx_ec256_private_t &privkey, const uint8_t *data, uint32_t size, sgx_ec256_signature_t &signature) {
     sgx_status_t status;
     sgx_ecc_state_handle_t ecc_handle = nullptr;
 
@@ -76,7 +76,7 @@ sgx_status_t ecdsa(sgx_ec256_private_t &privkey, const std::vector<uint8_t> &dat
         goto cleanup;
     }
 
-    status = sgx_ecdsa_sign(data.data(), data.size(), &privkey, &signature, ecc_handle);
+    status = sgx_ecdsa_sign(data, size, &privkey, &signature, ecc_handle);
     if (status != SGX_SUCCESS) {
         goto cleanup;
     }

@@ -13,7 +13,8 @@ typedef struct _attestation_status_struct {
     enum {
         NoErrorInformation = 0,
         MSG0_ExtendedEpidGroupIdIsNotZero,
-        MSG1_ClientEnclaveSessionKeyIsInvalid
+        MSG1_ClientEnclaveSessionKeyIsInvalid,
+        MSG3_ClientEnclaveSessingKeyMismatch,
     } error;
 } attestation_status_t;
 
