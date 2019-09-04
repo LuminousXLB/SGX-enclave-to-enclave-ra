@@ -1,10 +1,11 @@
 #ifndef SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H
 #define SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H
 
-#include <tlibc/mbusafecrt.h>
+#include <vector>
 #include <sgx_key_exchange.h>
 #include "protocol.h"
-#include "crypto_utils.h"
+
+using namespace std;
 
 typedef struct ra_secret_struct {
     sgx_ec256_private_t private_b;
@@ -17,8 +18,11 @@ typedef struct ra_secret_struct {
 
 #define check_sgx_status(status) if(status != SGX_SUCCESS) return status;
 
-sgx_status_t private_proc_msg0(ra_secret_t *secret, uint32_t msg0_extended_epid_group_id, attestation_error_t *error);
+sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_status_t *status);
 
-sgx_status_t private_proc_msg1(ra_secret_t *secret, sgx_ra_msg1_t *msg1, attestation_error_t *error);
+sgx_status_t private_proc_msg1(ra_secret_t &secret, sgx_ra_msg1_t *msg1, attestation_status_t *status);
+
+sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t& spid,const sgx_quote_sign_type_t& quote_type,
+                                const vector<uint8_t> &sigrl, sgx_ra_msg2_t &msg2);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H

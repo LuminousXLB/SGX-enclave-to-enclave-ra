@@ -1,13 +1,12 @@
-//
-// Created by ncl on 3/9/19.
-//
-
 #include <string.h>
+#include <hexutil.h>
 #include "ias.h"
 #include "common.h"
 
 extern char debug;
 extern char verbose;
+
+using namespace json;
 
 int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid, char **sig_rl, uint32_t *sig_rl_size) {
     IAS_Request *req = NULL;
@@ -190,11 +189,11 @@ int get_attestation_report(IAS_Connection *ias, int version, const char *b64quot
         if (verbose) edividerWithText("ISV isv_enclave Trust Status");
 
         if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("OK"))) {
-            msg4->status = Trusted;
+            msg4->status.trust = attestation_status_t::Trusted;
             if (verbose) eprintf("isv_enclave TRUSTED\n");
         } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("CONFIGURATION_NEEDED"))) {
             if (strict_trust) {
-                msg4->status = NotTrusted_ItsComplicated;
+                msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
                 if (verbose)
                     eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
                             reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
@@ -202,15 +201,15 @@ int get_attestation_report(IAS_Connection *ias, int version, const char *b64quot
                 if (verbose)
                     eprintf("isv_enclave TRUSTED and COMPLICATED - Reason: %s\n",
                             reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-                msg4->status = Trusted_ItsComplicated;
+                msg4->status.trust = attestation_status_t::Trusted_Complicated;
             }
         } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("GROUP_OUT_OF_DATE"))) {
-            msg4->status = NotTrusted_ItsComplicated;
+            msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
             if (verbose)
                 eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
                         reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
         } else {
-            msg4->status = NotTrusted;
+            msg4->status.trust = attestation_status_t::NotTrusted;
             if (verbose)
                 eprintf("isv_enclave NOT TRUSTED - Reason: %s\n",
                         reportObj["isvEnclaveQuoteStatus"].ToString().c_str());

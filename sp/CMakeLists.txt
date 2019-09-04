@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
+
 set(EDL_SEARCH_PATHS sp_enclave)
 
 # build enclave library
@@ -23,16 +24,19 @@ enclave_sign(sp_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(sp_app
-        SRCS sp_app.cpp ias.h ias.cpp enclave_verify.h enclave_verify.c sp_ocalls.h sp_ocalls.cpp
+        SRCS sp_app.cpp ias.h ias.cpp enclave_verify.h enclave_verify.c sp_ocalls.h sp_ocalls.cpp tmp_config.h tmp_config.cpp
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 
 #target_compile_options(sp_app PRIVATE -Wno-pointer-to-int-cast)
 
 add_subdirectory(ias_request)
+add_subdirectory(key_exchange_message)
 
 target_include_directories(sp_app PRIVATE ias_request)
-target_link_libraries(sp_app ias_request) #  sp_ocalls
-target_link_libraries(sp_app common msgio hexutil logfile fileio base64 byteorder) # crypto
+target_include_directories(sp_app PRIVATE key_exchange_message)
+
+target_link_libraries(sp_app ias_request key_exchange_message) #  sp_ocalls
+target_link_libraries(sp_app common msgio hexutil logfile fileio base64 byteorder sgx_utils) # crypto
 
 add_dependencies(sp_app sp_enclave-sign)

@@ -26,5 +26,6 @@ include_directories(crypto)
 
 # client
 add_subdirectory(isv)
+
 # server
 add_subdirectory(sp)

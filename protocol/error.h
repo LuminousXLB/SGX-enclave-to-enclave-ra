@@ -2,13 +2,20 @@
 #define SGX_ENCLAVE_TO_ENCLAVE_RA_ERROR_H
 
 
-#define Attestation_ErrInvalidMsg0 "msg0 Extended Epid Group ID is not zero"
+typedef struct _attestation_status_struct {
+    enum {
+        NotTrusted = 0,
+        NotTrusted_Complicated,
+        Trusted_Complicated,
+        Trusted
+    } trust;
 
-
-typedef enum {
-    Extended_Epid_Group_ID_Is_Not_Zero,
-    Client_Enclave_Session_Key_Is_Invalid
-} attestation_error_t;
+    enum {
+        NoErrorInformation = 0,
+        MSG0_ExtendedEpidGroupIdIsNotZero,
+        MSG1_ClientEnclaveSessionKeyIsInvalid
+    } error;
+} attestation_status_t;
 
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_ERROR_H
