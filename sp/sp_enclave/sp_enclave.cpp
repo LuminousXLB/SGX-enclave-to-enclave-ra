@@ -35,15 +35,15 @@ sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
     att_status->trust = attestation_status_t::NotTrusted;
     att_status->error = attestation_status_t::NoErrorInformation;
 
-//    proc msg0
+    /* proc msg0 */
     status = private_proc_msg0(msg01.msg0_extended_epid_group_id, att_status);
     check_sgx_status(status);
 
-//    proc msg1
+    /* proc msg1 */
     status = private_proc_msg1(secret, msg01.msg1, att_status);
     check_sgx_status(status);
 
-//    [ocall] get SigRL, spid, quote_type
+    /* [ocall] get SigRL, spid, quote_type */
     sgx_spid_t spid;
     sgx_quote_sign_type_t quote_type;
     uint32_t sigrl_size;
@@ -52,25 +52,26 @@ sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
     vector<uint8_t> sigrl(sigrl_size, 0);
     ocall_get_sigrl(sigrl.size(), &sigrl[0]);
 
-//    build msg2
+    /* build msg2 */
     sgx_ra_msg2_t msg2;
     status = private_build_msg2(secret, spid, quote_type, sigrl, msg2);
     check_sgx_status(status);
 
-//    send msg2 & recv msg3
+    /* send msg2 & recv msg3 */
     uint32_t msg3_length;
     ocall_pre_get_msg3(msg2, &msg3_length);
     vector<uint8_t> msg3_buffer(msg3_length, 0);
 
     ocall_get_msg3(msg3_buffer.size(), &msg3_buffer[0]);
+
+    /* proc msg3 */
     status = private_proc_msg3(secret, *reinterpret_cast<const sgx_ra_msg3_t *> (msg3_buffer.data()), att_status);
     check_sgx_status(status);
 
-//    sgx_ra_msg3_t msg3;
-//    ocall_get_msg3(&msg3_length, msg2, &msg3);
+    /* get  report */
+    /* proc msg4 */
+    /* send msg4 */
 
-//    proc msg3
-//    get  report
-//    proc msg4
-//    send msg4
+    return SGX_SUCCESS;
 }
+

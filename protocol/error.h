@@ -15,6 +15,8 @@ typedef struct _attestation_status_struct {
         MSG0_ExtendedEpidGroupIdIsNotZero,
         MSG1_ClientEnclaveSessionKeyIsInvalid,
         MSG3_ClientEnclaveSessingKeyMismatch,
+        MSG3_InvalidReportData,
+        MSG3_EpidGroupIdMismatch,
     } error;
 } attestation_status_t;
 

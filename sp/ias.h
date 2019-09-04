@@ -9,10 +9,9 @@
 #include "sgx_key_exchange.h"
 #include "protocol.h"
 
-int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, string &sig_rl);
+ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, string &sig_rl);
 
-int get_attestation_report(IAS_Connection *ias, int version, const char *b64quote, sgx_ps_sec_prop_desc_t sec_prop,
-                           ra_msg4_t *msg4, int strict_trust);
-
+ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote,
+                                   string &content, vector<string> &messages);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_IAS_H

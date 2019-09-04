@@ -87,59 +87,49 @@ sgx_status_t ecdsa(sgx_ec256_private_t &privkey, const uint8_t *data, uint32_t s
 }
 
 
-sgx_status_t derive_key(
-        const sgx_ec256_dh_shared_t *ss,
-        const string &label,
-        sgx_cmac_128bit_key_t *derived_key) {
-
-#define EC_DERIVATION_BUFFER_SIZE(label_length) ((label_length) +4)
+sgx_status_t derive_key(key_derivation_type_t type,
+                        const sgx_ec256_dh_shared_t &shared_secret,
+                        sgx_cmac_128bit_key_t &derived_key) {
 
     sgx_status_t status;
 
-    sgx_cmac_128bit_key_t cmac_key;
+    /* Perform an AES-128 CMAC on the little-endian form of Gabx using a block of 0x00 bytes for the key */
+    vector<uint8_t> all_zero_cmac_key(SGX_CMAC_KEY_SIZE, 0);
     sgx_cmac_128bit_key_t key_derive_key;
-
-    if (!ss || !derived_key || label.empty()) {
-        return SGX_ERROR_INVALID_PARAMETER;
-    }
-
-
-    /*check integer overflow */
-    if (label.length() > EC_DERIVATION_BUFFER_SIZE(label.length())) {
-        return SGX_ERROR_INVALID_PARAMETER;
-    }
-
-    memset(cmac_key, 0, SGX_CMAC_KEY_SIZE);
-    status = sgx_rijndael128_cmac_msg(&cmac_key,
-                                      (uint8_t *) ss,
-                                      sizeof(sgx_ec256_dh_shared_t),
+    status = sgx_rijndael128_cmac_msg((sgx_cmac_128bit_key_t *) all_zero_cmac_key.data(),
+                                      (uint8_t *) &shared_secret, sizeof(sgx_ec256_dh_shared_t),
                                       (sgx_cmac_128bit_tag_t *) &key_derive_key);
     if (SGX_SUCCESS != status) {
         return status;
     }
 
     /* derivation_buffer = counter(0x01) || label || 0x00 || output_key_len(0x0080) */
-    uint32_t derivation_buffer_length = EC_DERIVATION_BUFFER_SIZE(label.length());
-    uint8_t *p_derivation_buffer = (uint8_t *) malloc(derivation_buffer_length);
-    if (p_derivation_buffer == NULL) {
-        return SGX_ERROR_OUT_OF_MEMORY;
+    uint8_t *derive_msg = nullptr;
+    uint32_t derive_msg_length;
+
+    switch (type) {
+        case DERIVE_KEY_SMK:
+            derive_msg = (uint8_t *) ("\x01SMK\x00\x80\x00");
+            derive_msg_length = 7;
+            break;
+        case DERIVE_KEY_SK:
+            derive_msg = (uint8_t *) ("\x01SK\x00\x80\x00");
+            derive_msg_length = 6;
+            break;
+        case DERIVE_KEY_MK:
+            derive_msg = (uint8_t *) ("\x01MK\x00\x80\x00");
+            derive_msg_length = 6;
+            break;
+        case DERIVE_KEY_VK:
+            derive_msg = (uint8_t *) ("\x01VK\x00\x80\x00");
+            derive_msg_length = 6;
+            break;
+        default:
+            return SGX_ERROR_INVALID_PARAMETER;
     }
-    memset(p_derivation_buffer, 0, derivation_buffer_length);
 
-    /*counter = 0x01 */
-    p_derivation_buffer[0] = 0x01;
-    /*label*/
-    memcpy(&p_derivation_buffer[1], label.c_str(), label.length());
-    /*output_key_len=0x0080*/
-    uint16_t *key_len = (uint16_t *) &p_derivation_buffer[derivation_buffer_length - 2];
-    *key_len = 0x0080;
+    status = sgx_rijndael128_cmac_msg(&key_derive_key, derive_msg, derive_msg_length,
+                                      (sgx_cmac_128bit_tag_t *) &derived_key);
 
-    status = sgx_rijndael128_cmac_msg((sgx_cmac_128bit_key_t *) &key_derive_key,
-                                      p_derivation_buffer,
-                                      derivation_buffer_length,
-                                      (sgx_cmac_128bit_tag_t *) derived_key);
-
-    free(p_derivation_buffer);
-#undef EC_DERIVATION_BUFFER_SIZE
     return status;
 }

@@ -40,7 +40,7 @@ sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, a
     check_sgx_status(status);
 
     /* Derive SMK */
-    status = derive_key(&secret.shared_secret, "SMK", &secret.smk);
+    status = derive_key(DERIVE_KEY_SMK, secret.shared_secret, secret.smk);
     check_sgx_status(status);
 
     return status;
@@ -81,105 +81,145 @@ sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, con
 
 sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_status_t *att_status) {
     sgx_status_t status;
+    sgx_quote_t &quote = *(sgx_quote_t *) msg3.quote;
 
+    /* Verify that Ga in msg3 matches Ga in msg1 */
     if (memcmp(&secret.public_a, &msg3.g_a, sizeof(sgx_ec256_public_t)) != 0) {
         att_status->error = attestation_status_t::MSG3_ClientEnclaveSessingKeyMismatch;
         return SGX_ERROR_UNEXPECTED;
     }
 
-#if 0
-
-    /*
-     * The quote size will be the total msg3 size - sizeof(sgx_ra_msg3_t)
-     * since msg3.quote is a flexible array member.
-     *
-     * Total message size is sz/2 since the income message is in base16.
-     */
-    quote_sz = (uint32_t) ((sz / 2) - sizeof(sgx_ra_msg3_t));
-    if (debug) {
-        eprintf("+++ quote_sz= %lu bytes\n", quote_sz);
-    }
-
-    /* Make sure Ga matches msg1 */
-
-    if (debug) {
-        eprintf("+++ Verifying msg3.g_a matches msg1.g_a\n");
-        eprintf("msg1.g_a.gx = %s\n", hexstring(msg3->g_a.gx, sizeof(msg1->g_a.gx)));
-        eprintf("msg1.g_a.gy = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg1->g_a.gy)));
-        eprintf("msg3.g_a.gx = %s\n", hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
-        eprintf("msg3.g_a.gy = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
-    }
-    if (CRYPTO_memcmp(&msg3->g_a, &msg1->g_a, sizeof(sgx_ec256_public_t))) {
-        eprintf("msg1.g_a and mgs3.g_a keys don't match\n");
-        free(msg3);
-        return 0;
-    }
-
-    /* Validate the MAC of M */
-
-    cmac128(session->smk, (unsigned char *) &msg3->g_a, sizeof(sgx_ra_msg3_t) - sizeof(sgx_mac_t) + quote_sz,
-            (unsigned char *) vrfymac);
-    if (debug) {
-        eprintf("+++ Validating MACsmk(M)\n");
-        eprintf("msg3.mac   = %s\n", hexstring(msg3->mac, sizeof(sgx_mac_t)));
-        eprintf("calculated = %s\n", hexstring(vrfymac, sizeof(sgx_mac_t)));
-    }
-    if (CRYPTO_memcmp(msg3->mac, vrfymac, sizeof(sgx_mac_t))) {
-        eprintf("Failed to verify msg3 MAC\n");
-        free(msg3);
-        return 0;
-    }
-
-    /* Encode the report body as base64 */
-
-    b64quote = base64_encode((char *) &msg3->quote, quote_sz);
-    if (b64quote == NULL) {
-        eprintf("Could not base64 encode the quote\n");
-        free(msg3);
-        return 0;
-    }
-    q = (sgx_quote_t *) msg3->quote;
-
-    if (verbose) {
-
-        edividerWithText("Msg3 Details (from Client)");
-        eprintf("msg3.mac                 = %s\n", hexstring(&msg3->mac, sizeof(msg3->mac)));
-        eprintf("msg3.g_a.gx              = %s\n", hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));
-        eprintf("msg3.g_a.gy              = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
-        eprintf("msg3.ps_sec_prop         = %s\n", hexstring(&msg3->ps_sec_prop, sizeof(msg3->ps_sec_prop)));
-        eprintf("msg3.quote.version       = %s\n", hexstring(&q->version, sizeof(uint16_t)));
-        eprintf("msg3.quote.sign_type     = %s\n", hexstring(&q->sign_type, sizeof(uint16_t)));
-        eprintf("msg3.quote.epid_group_id = %s\n", hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
-        eprintf("msg3.quote.qe_svn        = %s\n", hexstring(&q->qe_svn, sizeof(sgx_isv_svn_t)));
-        eprintf("msg3.quote.pce_svn       = %s\n", hexstring(&q->pce_svn, sizeof(sgx_isv_svn_t)));
-        eprintf("msg3.quote.xeid          = %s\n", hexstring(&q->xeid, sizeof(uint32_t)));
-        eprintf("msg3.quote.basename      = %s\n", hexstring(&q->basename, sizeof(sgx_basename_t)));
-        eprintf("msg3.quote.report_body   = %s\n", hexstring(&q->report_body, sizeof(sgx_report_body_t)));
-        eprintf("msg3.quote.signature_len = %s\n", hexstring(&q->signature_len, sizeof(uint32_t)));
-        eprintf("msg3.quote.signature     = %s\n", hexstring(&q->signature, q->signature_len));
-
-        edividerWithText("isv_enclave Quote (base64) ==> Send to IAS");
-
-        eputs(b64quote);
-
-        eprintf("\n");
-        edivider();
-    }
 
     /* Verify that the EPID group ID in the quote matches the one from msg1 */
-
-    if (debug) {
-        eprintf("+++ Validating quote's epid_group_id against msg1\n");
-        eprintf("msg1.egid = %s\n", hexstring(msg1->gid, sizeof(sgx_epid_group_id_t)));
-        eprintf("msg3.quote.epid_group_id = %s\n", hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
+    if (memcmp(secret.client_gid, quote.epid_group_id, sizeof(sgx_epid_group_id_t)) != 0) {
+        att_status->error = attestation_status_t::MSG3_EpidGroupIdMismatch;
+        return SGX_ERROR_UNEXPECTED;
     }
 
-    if (memcmp(msg1->gid, &q->epid_group_id, sizeof(sgx_epid_group_id_t))) {
-        eprintf("EPID GID mismatch. Attestation failed.\n");
-        free(b64quote);
-        free(msg3);
-        return 0;
+    /* Verify CMACsmk of M */
+    uint32_t quote_size = 436 + quote.signature_len;
+    uint32_t M_length = sizeof(sgx_ra_msg3_t) - sizeof(sgx_mac_t) + quote_size;
+
+    sgx_cmac_128bit_tag_t mac;
+    status = sgx_rijndael128_cmac_msg(&secret.smk, (uint8_t *) &msg3.g_a, M_length, &mac);
+    check_sgx_status(status);
+
+    if (memcmp(msg3.mac, mac, SGX_CMAC_MAC_SIZE) != 0) {
+        return SGX_ERROR_MAC_MISMATCH;
     }
 
-#endif
+    /* Verify that the first 64 bytes of the report data (inside the quote) are SHA256(Ga||Gb||VK)||0x00[32] */
+    /* Derive VK */
+    sgx_cmac_128bit_key_t vk;
+    status = derive_key(DERIVE_KEY_VK, secret.shared_secret, vk);
+    check_sgx_status(status);
+
+    /* Build our plaintext */
+    vector<uint8_t> plaintext;
+    plaintext.reserve(sizeof(sgx_ec256_public_t) * 2 + sizeof(sgx_cmac_128bit_key_t));
+
+    auto *ptr = (uint8_t *) &secret.public_a;
+    plaintext.insert(plaintext.end(), ptr, ptr + sizeof(sgx_ec256_public_t));
+    ptr = (uint8_t *) &secret.public_b;
+    plaintext.insert(plaintext.end(), ptr, ptr + sizeof(sgx_ec256_public_t));
+    ptr = (uint8_t *) &vk;
+    plaintext.insert(plaintext.end(), ptr, ptr + sizeof(sgx_cmac_128bit_key_t));
+
+    /* Calculate SHA-256 digest of (Ga || Gb || VK) */
+    sgx_sha256_hash_t digest;
+    status = sgx_sha256_msg(plaintext.data(), plaintext.size(), &digest);
+    check_sgx_status(status);
+
+    /* verify */
+    vector<uint8_t> verification(begin(digest), end(digest));
+    verification.resize(SGX_REPORT_DATA_SIZE, 0);
+
+    uint8_t &report_data[SGX_REPORT_DATA_SIZE] = quote.report_body.report_data.d;
+    if (memcmp(verification.data(), report_data, SGX_REPORT_DATA_SIZE) != 0) {
+        att_status->error = attestation_status_t::MSG3_InvalidReportData;
+        return SGX_ERROR_UNEXPECTED;
+    }
+
+    return SGX_SUCCESS;
 }
+
+
+#if 0
+// whether trust
+
+        /*
+         * This sample's attestion policy is based on isvEnclaveQuoteStatus:
+         *
+         *   1) if "OK" then return "Trusted"
+         *
+          *   2) if "CONFIGURATION_NEEDED" then return
+         *       "NotTrusted_ItsComplicated" when in --strict-trust-mode
+         *        and "Trusted_ItsComplicated" otherwise
+         *
+         *   3) return "NotTrusted" for all other responses
+         *
+         *
+         * ItsComplicated means the client is not trusted, but can
+         * conceivable take action that will allow it to be trusted
+         * (such as a BIOS update).
+          */
+
+        /*
+         * Simply check to see if status is OK, else enclave considered
+         * not trusted
+         */
+
+        memset(msg4, 0, sizeof(ra_msg4_t));
+
+        if (verbose) edividerWithText("ISV isv_enclave Trust Status");
+
+        if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("OK"))) {
+            msg4->status.trust = attestation_status_t::Trusted;
+            if (verbose) eprintf("isv_enclave TRUSTED\n");
+        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("CONFIGURATION_NEEDED"))) {
+            if (strict_trust) {
+                msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
+                if (verbose)
+                    eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
+                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
+            } else {
+                if (verbose)
+                    eprintf("isv_enclave TRUSTED and COMPLICATED - Reason: %s\n",
+                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
+                msg4->status.trust = attestation_status_t::Trusted_Complicated;
+            }
+        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("GROUP_OUT_OF_DATE"))) {
+            msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
+            if (verbose)
+                eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
+                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
+        } else {
+            msg4->status.trust = attestation_status_t::NotTrusted;
+            if (verbose)
+                eprintf("isv_enclave NOT TRUSTED - Reason: %s\n",
+                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
+        }
+
+
+        /* Check to see if a platformInfoBlob was sent back as part of the
+         * response */
+
+        if (!reportObj["platformInfoBlob"].IsNull()) {
+            if (verbose) eprintf("A Platform Info Blob (PIB) was provided by the IAS\n");
+
+            /* The platformInfoBlob has two parts, a TVL Header (4 bytes),
+             * and TLV Payload (variable) */
+
+            string pibBuff = reportObj["platformInfoBlob"].ToString();
+
+            /* remove the TLV Header (8 base16 chars, ie. 4 bytes) from
+             * the PIB Buff. */
+
+            pibBuff.erase(pibBuff.begin(), pibBuff.begin() + (4 * 2));
+
+            int ret = from_hexstring((unsigned char *) &msg4->platformInfoBlob,
+                                     pibBuff.c_str(), pibBuff.length() / 2);
+        } else {
+            if (verbose) eprintf("A Platform Info Blob (PIB) was NOT provided by the IAS\n");
+        }
+#endif
