@@ -9,7 +9,8 @@ enclave {
 	    void ocall_pre_get_sigrl([out, isary] sgx_epid_group_id_t gid, [in] sgx_spid_t *spid, [in] sgx_quote_sign_type_t *quote_type, [in] uint32_t *sigrl_length);
         void ocall_get_sigrl(uint32_t sigrl_size, [in, size=sigrl_size]uint8_t *sigrl);
 
-        void ocall_send_msg2_recv_msg3([out] sgx)
+        void ocall_get_msg3(sgx_ra_msg2_t msg2, [in, size=*msg3_length] sgx_ra_msg3_t *msg3, [in] uint32_t *msg3_length);
+
 	    /* public <ret> ocall_get_msg3(gid) */
 	    /* public <ret> ocall_get_sigrl(gid) */
 	};

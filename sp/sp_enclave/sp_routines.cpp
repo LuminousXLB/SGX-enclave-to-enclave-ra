@@ -71,9 +71,12 @@ sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, con
     check_sgx_status(status);
 
     /* CMACsmk */
-    sgx_rijndael128_cmac_msg(&secret.smk, (uint8_t *) &msg2, 148, &msg2.mac);
+    status = sgx_rijndael128_cmac_msg(&secret.smk, (uint8_t *) &msg2, 148, &msg2.mac);
+    check_sgx_status(status);
 
     /* SigRL */
     msg2.sig_rl_size = sigrl.size();
-    memcpy(&msg2.sig_rl, sigrl.data(), sigrl.size());
+//    memcpy(&msg2.sig_rl, sigrl.data(), sigrl.size());
+
+    return status;
 }

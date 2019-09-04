@@ -1,4 +1,5 @@
 #include <cstring>
+#include "key_exchange_message.h"
 #include "sp_enclave_u.h"
 #include "ias_request.h"
 #include "msgio.h"
@@ -40,7 +41,7 @@ void ocall_get_sigrl(uint32_t sigrl_size, uint8_t *sigrl) {
 }
 
 void ocall_get_msg3(sgx_ra_msg2_t msg2, sgx_ra_msg3_t *msg3, uint32_t *msg3_length) {
-//  send msg2
-//  recv msg3
+    send_msg2(msg2, (uint8_t *) sigrl_buffer);
+    recv_msg3(msg3, (size_t *) msg3_length);
 }
 

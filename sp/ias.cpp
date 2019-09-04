@@ -9,8 +9,8 @@ extern char verbose;
 
 using namespace json;
 
-int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid, char **sig_rl, uint32_t *sig_rl_size) {
-    IAS_Request *req = NULL;
+int get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, char **sig_rl, uint32_t *sig_rl_size) {
+    IAS_Request *req = nullptr;
     int oops = 1;
     string sigrlstr;
 
@@ -30,7 +30,7 @@ int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid, char **
 
     ias_error_t ret = IAS_OK;
 
-    while (1) {
+    while (true) {
 
         ret = req->sigrl(*(uint32_t *) gid, sigrlstr);
         if (debug) {
