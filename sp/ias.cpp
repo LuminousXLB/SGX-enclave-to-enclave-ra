@@ -122,6 +122,7 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
             edivider();
         }
 
+//        TODO: Put this to a better place
         /*
          * If the report returned a version number (API v3 and above), make
          * sure it matches the API version we used to fetch the report.
@@ -143,49 +144,9 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
             delete req;
             return 0;
         }
-
-
-        delete req;
-        return 1;
-    }
-
-    eprintf("attestation query returned %lu: \n", status);
-
-    switch (status) {
-        case IAS_QUERY_FAILED:
-            eprintf("Could not query IAS\n");
-            break;
-        case IAS_BADREQUEST:
-            eprintf("Invalid payload\n");
-            break;
-        case IAS_UNAUTHORIZED:
-            eprintf("Failed to authenticate or authorize request\n");
-            break;
-        case IAS_SERVER_ERR:
-            eprintf("An internal error occurred on the IAS server\n");
-            break;
-        case IAS_UNAVAILABLE:
-            eprintf("Service is currently not able to process the request. Try again later.\n");
-            break;
-        case IAS_INTERNAL_ERROR:
-            eprintf("An internal error occurred while processing the IAS response\n");
-            break;
-        case IAS_BAD_CERTIFICATE:
-            eprintf("The signing certificate could not be validated\n");
-            break;
-        case IAS_BAD_SIGNATURE:
-            eprintf("The report signature could not be validated\n");
-            break;
-        default:
-            if (status >= 100 && status < 600) {
-                eprintf("Unexpected HTTP response code\n");
-            } else {
-                eprintf("An unknown error occurred.\n");
-            }
     }
 
     delete req;
-
     return status;
 }
 

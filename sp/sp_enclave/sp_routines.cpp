@@ -223,3 +223,88 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
             if (verbose) eprintf("A Platform Info Blob (PIB) was NOT provided by the IAS\n");
         }
 #endif
+
+
+#if 0
+
+
+#ifndef _WIN32
+/* Windows implementation is not available yet */
+
+        if (!verify_enclave_identity(config->req_mrsigner,
+                                     config->req_isv_product_id, config->min_isvsvn,
+                                     config->allow_debug_enclave, r)) {
+
+            eprintf("Invalid enclave.\n");
+            msg4->status = NotTrusted;
+        }
+#endif
+
+        if (verbose) {
+            edivider();
+
+            // The enclave report is valid so we can trust the report
+            // data.
+
+            edividerWithText("isv_enclave Report Details");
+
+            eprintf("cpu_svn     = %s\n",
+                    hexstring(&r->cpu_svn, sizeof(sgx_cpu_svn_t)));
+            eprintf("misc_select = %s\n",
+                    hexstring(&r->misc_select, sizeof(sgx_misc_select_t)));
+            eprintf("attributes  = %s\n",
+                    hexstring(&r->attributes, sizeof(sgx_attributes_t)));
+            eprintf("mr_enclave  = %s\n",
+                    hexstring(&r->mr_enclave, sizeof(sgx_measurement_t)));
+            eprintf("mr_signer   = %s\n",
+                    hexstring(&r->mr_signer, sizeof(sgx_measurement_t)));
+            eprintf("isv_prod_id = %04hX\n", r->isv_prod_id);
+            eprintf("isv_svn     = %04hX\n", r->isv_svn);
+            eprintf("report_data = %s\n",
+                    hexstring(&r->report_data, sizeof(sgx_report_data_t)));
+        }
+
+
+        edividerWithText("Copy/Paste Msg4 Below to Client");
+
+        /* Serialize the members of the Msg4 structure independently */
+        /* vs. the entire structure as one send_msg() */
+
+        msgio->send_partial(&msg4->status, sizeof(msg4->status));
+        msgio->send(&msg4->platformInfoBlob, sizeof(msg4->platformInfoBlob));
+
+        fsend_msg_partial(fplog, &msg4->status, sizeof(msg4->status));
+        fsend_msg(fplog, &msg4->platformInfoBlob,
+                  sizeof(msg4->platformInfoBlob));
+        edivider();
+
+        /*
+         * If the enclave is trusted, derive the MK and SK. Also get
+         * SHA256 hashes of these so we can verify there's a shared
+         * secret between us and the client.
+         */
+
+        if (msg4->status == Trusted) {
+            unsigned char hashmk[32], hashsk[32];
+
+            if (debug) eprintf("+++ Deriving the MK and SK\n");
+            cmac128(session->kdk, (unsigned char *) ("\x01MK\x00\x80\x00"),
+                    6, session->mk);
+            cmac128(session->kdk, (unsigned char *) ("\x01SK\x00\x80\x00"),
+                    6, session->sk);
+
+            sha256_digest(session->mk, 16, hashmk);
+            sha256_digest(session->sk, 16, hashsk);
+
+            if (verbose) {
+                if (debug) {
+                    eprintf("MK         = %s\n", hexstring(session->mk, 16));
+                    eprintf("SK         = %s\n", hexstring(session->sk, 16));
+                }
+                eprintf("SHA256(MK) = %s\n", hexstring(hashmk, 32));
+                eprintf("SHA256(SK) = %s\n", hexstring(hashsk, 32));
+            }
+        }
+
+    }
+#endif
