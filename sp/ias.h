@@ -8,7 +8,6 @@
 #include "ias_request.h"
 #include "sgx_key_exchange.h"
 #include "protocol.h"
-#include "json.hpp"
 
 int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid, char **sig_rl, uint32_t *sig_rl_size);
 

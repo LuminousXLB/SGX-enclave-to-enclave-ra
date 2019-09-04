@@ -12,7 +12,7 @@ typedef struct config_struct {
     sgx_spid_t spid;
     unsigned char pri_subscription_key[IAS_SUBSCRIPTION_KEY_SIZE + 1];
     unsigned char sec_subscription_key[IAS_SUBSCRIPTION_KEY_SIZE + 1];
-    uint16_t quote_type;
+    sgx_quote_sign_type_t quote_type;
     char *user_agent;
     unsigned char kdk[16];
     X509_STORE *store;

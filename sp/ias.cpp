@@ -2,6 +2,7 @@
 #include <hexutil.h>
 #include "ias.h"
 #include "common.h"
+#include "json.hpp"
 
 extern char debug;
 extern char verbose;

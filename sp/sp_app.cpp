@@ -32,7 +32,6 @@ in the License.
 #include "sp_enclave_u.h"
 #include "tmp_config.h"
 
-using namespace json;
 using namespace std;
 
 #include <map>
@@ -59,6 +58,8 @@ MsgIO *msgio = nullptr;
 IAS_Connection *ias = nullptr;
 extern sgx_spid_t SP_SPID;
 extern sgx_quote_sign_type_t SP_QUOTE_TYPE;
+config_t config;
+
 
 void loop_routine() {
     ra_msg01_t msg01;
@@ -84,7 +85,6 @@ void loop_routine() {
 //        TODO: print error information
         printf("Attestation Error: %d", att_status.error);
     }
-
 
 //    TODO: Send message4
 
@@ -143,7 +143,6 @@ int main(int argc, char *argv[]) {
 
     /* Parse command line options */
 
-    config_t config;
     if (!parse_command_line_options(argc, argv, config)) {
         return EXIT_FAILURE;
     }
