@@ -58,7 +58,7 @@ sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
     check_sgx_status(status);
 
 //    send msg2
-
+//    ocall_get_ms
 
 //    recv msg3
 //    proc msg3

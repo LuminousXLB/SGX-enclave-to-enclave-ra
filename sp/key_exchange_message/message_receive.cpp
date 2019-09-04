@@ -30,10 +30,10 @@ int recv_msg01(ra_msg01_t *msg01) {
     return rv;
 }
 
-int recv_msg3(sgx_ra_msg3_t *&msg3, size_t *msg3_length) {
+int recv_msg3(sgx_ra_msg3_t *&msg3, uint32_t &msg3_length) {
     fprintf(stderr, "Waiting for msg3\n");
 
-    int rv = msgio->read((void **) &msg3, msg3_length);
+    int rv = msgio->read((void **) &msg3, (size_t *) &msg3_length);
 
     if (rv == -1) {
         eprintf("system error reading msg3\n");

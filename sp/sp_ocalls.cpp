@@ -40,8 +40,12 @@ void ocall_get_sigrl(uint32_t sigrl_size, uint8_t *sigrl) {
     }
 }
 
-void ocall_get_msg3(sgx_ra_msg2_t msg2, sgx_ra_msg3_t *msg3, uint32_t *msg3_length) {
+uint32_t ocall_get_msg3(sgx_ra_msg2_t msg2, sgx_ra_msg3_t *msg3) {
     send_msg2(msg2, (uint8_t *) sigrl_buffer);
-    recv_msg3(msg3, (size_t *) msg3_length);
+
+    uint32_t msg3_length;
+    recv_msg3(msg3, msg3_length);
+
+    return msg3_length;
 }
 
