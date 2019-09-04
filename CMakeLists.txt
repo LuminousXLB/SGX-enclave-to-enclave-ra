@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SGX_enclave_to_enclave_ra)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 
 # Intel OpenSSL
 find_package(OpenSSL REQUIRED)
@@ -27,4 +27,4 @@ include_directories(crypto)
 # client
 add_subdirectory(isv)
 # server
-add_subdirectory(service_provider)
+add_subdirectory(sp)

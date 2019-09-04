@@ -13,18 +13,18 @@
  *
  *  1) The enclave signer measurement (MRSIGNER) matches the measurement
  *     of the key used to sign the enclave. The signing key is in 
- *     Enclave/Enclave_private.pem
+ *     isv_enclave/isv_enclave_private.pem
  *
  *  2) The ISV Product Id is == our expected Product ID. The product
- *     ID is set in Enclave/Enclave_config.xml. This allows ISV's to
+ *     ID is set in isv_enclave/Enclave_config.xml. This allows ISV's to
  *     create multiple enclaves for multiple applications, but only
  *     allow a subset of those to attest to this particular service.
  *     In this code sampole, we only accept one enclave (the one
  *     that comes with it).
  *
  *  3) The ISV Software Version number (isvsvn) >= a minimum version
- *     number specified at runtime. The Enclave's version number is
- *     set in Enclave/Enclave_config.xml. This allows an ISV to enforce
+ *     number specified at runtime. The isv_enclave's version number is
+ *     set in isv_enclave/Enclave_config.xml. This allows an ISV to enforce
  *     a minimum software version number which is a means of enforcing
  *     software updats on the client.
  * 
@@ -47,17 +47,17 @@ int verify_enclave_identity(sgx_measurement_t req_mr_signer,
 {
 	if ( verbose ) {
 		edividerWithText("Client enclave Identity");
-		eprintf("Enclave MRSIGNER      = %s\n", 
+		eprintf("isv_enclave MRSIGNER      = %s\n",
 			hexstring((const char *) &report->mr_signer,
 			sizeof(sgx_measurement_t))
 		);
-		eprintf("Enclave MRENCLAVE     = %s\n", 
+		eprintf("isv_enclave MRENCLAVE     = %s\n",
 			hexstring((const char *) &report->mr_enclave,
 			sizeof(sgx_measurement_t))
 		);
-		eprintf("Enclave ISV Prod Id   = %x\n", report->isv_prod_id);
-		eprintf("Enclave ISV SVN       = %x\n", report->isv_svn);
-		eprintf("Enclave is debuggable = %s\n",
+		eprintf("isv_enclave ISV Prod Id   = %x\n", report->isv_prod_id);
+		eprintf("isv_enclave ISV SVN       = %x\n", report->isv_svn);
+		eprintf("isv_enclave is debuggable = %s\n",
 			( report->attributes.flags & SGX_FLAGS_DEBUG ) ? "Yes" : "No"
 		);
 	}

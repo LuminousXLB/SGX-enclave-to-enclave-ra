@@ -114,6 +114,9 @@ if(SGX_FOUND)
         set(oneValueArgs EDL LDSCRIPT)
         set(multiValueArgs SRCS EDL_SEARCH_PATHS)
         cmake_parse_arguments("SGX" "${optionArgs}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+        message(STATUS "Configuring add_trusted_library for ${target}")
+
         if("${SGX_EDL}" STREQUAL "")
             message(FATAL_ERROR "${target}: SGX enclave edl file is not provided!")
         endif()
@@ -147,6 +150,9 @@ if(SGX_FOUND)
         set(oneValueArgs EDL LDSCRIPT)
         set(multiValueArgs SRCS TRUSTED_LIBS EDL_SEARCH_PATHS)
         cmake_parse_arguments("SGX" "${optionArgs}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+        message(STATUS "Configuring add_enclave_library for ${target}")
+
         if("${SGX_EDL}" STREQUAL "")
             message(FATAL_ERROR "${target}: SGX enclave edl file is not provided!")
         endif()
@@ -185,7 +191,9 @@ if(SGX_FOUND)
     function(enclave_sign target)
         set(oneValueArgs KEY CONFIG OUTPUT)
         cmake_parse_arguments("SGX" "" "${oneValueArgs}" "" ${ARGN})
-        message(STATUS Signing Enclave - ${target})
+
+        message(STATUS "Configuring enclave_sign for ${target}")
+
         if("${SGX_CONFIG}" STREQUAL "")
             message(FATAL_ERROR "${target}: SGX enclave config is not provided!")
         endif()
@@ -272,6 +280,9 @@ if(SGX_FOUND)
         set(optionArgs USE_PREFIX)
         set(multiValueArgs SRCS EDL EDL_SEARCH_PATHS)
         cmake_parse_arguments("SGX" "${optionArgs}" "" "${multiValueArgs}" ${ARGN})
+
+        message(STATUS "Configuring add_untrusted_executable for ${target}")
+
         if("${SGX_EDL}" STREQUAL "")
             message(FATAL_ERROR "SGX enclave edl file is not provided!")
         endif()
@@ -294,6 +305,9 @@ if(SGX_FOUND)
             if(${SGX_USE_PREFIX})
                 set(USE_PREFIX "--use-prefix")
             endif()
+
+            message(STATUS "DEBUG: EDL for ${SGX_EDL} OUTPUT ${EDL_U_C}")
+
             add_custom_command(OUTPUT ${EDL_U_C}
                                COMMAND ${SGX_EDGER8R} ${USE_PREFIX} --untrusted ${EDL_ABSPATH} --search-path ${SEARCH_PATHS}
                                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})

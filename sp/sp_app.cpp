@@ -17,6 +17,7 @@ in the License.
 
 
 //#include "config.h"
+//#include "settings.h"
 #include <stdlib.h>
 #include <limits.h>
 #include <stdio.h>
@@ -41,8 +42,9 @@ in the License.
 #include "base64.h"
 #include "ias_request.h"
 #include "logfile.h"
-//#include "settings.h"
+#include "ias.h"
 #include "enclave_verify.h"
+#include "sp_enclave_u.h"
 
 using namespace json;
 using namespace std;
@@ -53,33 +55,13 @@ using namespace std;
 #include <algorithm>
 
 
-static const unsigned char def_service_private_key[32] = {
-        0x90, 0xe7, 0x6c, 0xbb, 0x2d, 0x52, 0xa1, 0xce,
-        0x3b, 0x66, 0xde, 0x11, 0x43, 0x9c, 0x87, 0xec,
-        0x1f, 0x86, 0x6a, 0x3b, 0x65, 0xb6, 0xae, 0xea,
-        0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
-};
-
-typedef struct ra_session_struct {
-    unsigned char g_a[64];
-    unsigned char g_b[64];
-    unsigned char kdk[16];
-    unsigned char smk[16];
-    unsigned char sk[16];
-    unsigned char mk[16];
-    unsigned char vk[16];
-} ra_session_t;
-
 typedef struct config_struct {
     sgx_spid_t spid;
     unsigned char pri_subscription_key[IAS_SUBSCRIPTION_KEY_SIZE + 1];
     unsigned char sec_subscription_key[IAS_SUBSCRIPTION_KEY_SIZE + 1];
     uint16_t quote_type;
     EVP_PKEY *service_private_key;
-    char *proxy_server;
-    // char *ca_bundle;
     char *user_agent;
-    unsigned int proxy_port;
     unsigned char kdk[16];
     X509_STORE *store;
     X509 *signing_ca;
@@ -93,35 +75,102 @@ typedef struct config_struct {
 
 void usage();
 
-#ifndef _WIN32
-
 void cleanup_and_exit(int signo);
 
-#endif
 
-int derive_kdk(EVP_PKEY *Gb, unsigned char kdk[16], sgx_ec256_public_t g_a,
-               config_t *config);
+int derive_kdk(EVP_PKEY *Gb, unsigned char kdk[16], sgx_ec256_public_t g_a, config_t *config);
 
-int process_msg01(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
-                  sgx_ra_msg2_t *msg2, char **sigrl, config_t *config,
-                  ra_session_t *session);
+int process_msg01(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1, sgx_ra_msg2_t *msg2, char **sigrl,
+                  config_t *config, ra_session_t *session);
 
-int process_msg3(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
-                 ra_msg4_t *msg4, config_t *config, ra_session_t *session);
+int process_msg3(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4_t *msg4, config_t *config,
+                 ra_session_t *session);
 
-int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid,
-              char **sigrl, uint32_t *msg2);
-
-int get_attestation_report(IAS_Connection *ias, int version,
-                           const char *b64quote, sgx_ps_sec_prop_desc_t sec_prop, ra_msg4_t *msg4,
-                           int strict_trust);
-
-int get_proxy(char **server, unsigned int *port, const char *url);
 
 char debug = 0;
 char verbose = 0;
-/* Need a global for the signal handler */
-MsgIO *msgio = NULL;
+MsgIO *msgio = nullptr;
+IAS_Connection *ias = nullptr;
+
+int read_msg01(ra_msg01_t *msg01) {
+    /*
+     * Read our incoming message. We're using base16 encoding/hex strings
+     * so we should end up with sizeof(msg)*2 bytes.
+     */
+
+    int rv;
+
+    fprintf(stderr, "Waiting for msg0||msg1\n");
+
+    rv = msgio->read((void **) &msg01, NULL);
+    if (rv == -1) {
+        eprintf("system error reading msg0||msg1\n");
+        return 0;
+    } else if (rv == 0) {
+        eprintf("protocol error reading msg0||msg1\n");
+        return 0;
+    }
+
+    if (verbose) {
+        edividerWithText("Msg0 Details (from Client)");
+        eprintf("msg0.extended_epid_group_id = %u\n", msg01->msg0_extended_epid_group_id);
+        edivider();
+    }
+
+    return 1;
+}
+
+void loop_routine() {
+    int rv;
+    sgx_ra_msg1_t msg1;
+    sgx_ra_msg2_t msg2;
+    ra_msg01_t msg01;
+    ra_msg4_t msg4;
+
+    /* Read message 0 and 1 */
+    if (!read_msg01(&msg01)) {
+        goto disconnect;
+    }
+
+    
+//
+//    if (!process_msg01(msgio, ias, &msg1, &msg2, &sigrl, &config, &session)) {
+//        eprintf("error processing msg1\n");
+//        goto disconnect;
+//    }
+
+    /* Send message 2 */
+
+    /*
+     * sgx_ra_msg2_t is a struct with a flexible array member at the
+     * end (defined as uint8_t sig_rl[]). We could go to all the
+     * trouble of building a byte array large enough to hold the
+     * entire struct and then cast it as (sgx_ra_msg2_t) but that's
+     * a lot of work for no gain when we can just send the fixed
+     * portion and the array portion by hand.
+     */
+
+    dividerWithText(stderr, "Copy/Paste Msg2 Below to Client");
+    dividerWithText(fplog, "Msg2 (send to Client)");
+
+    msgio->send_partial((void *) &msg2, sizeof(sgx_ra_msg2_t));
+    fsend_msg_partial(fplog, (void *) &msg2, sizeof(sgx_ra_msg2_t));
+
+    msgio->send(&msg2.sig_rl, msg2.sig_rl_size);
+    fsend_msg(fplog, &msg2.sig_rl, msg2.sig_rl_size);
+
+    edivider();
+
+    /* Read message 3, and generate message 4 */
+
+    if (!process_msg3(msgio, ias, &msg1, &msg4, &config, &session)) {
+        eprintf("error processing msg3\n");
+        goto disconnect;
+    }
+
+    disconnect:
+    msgio->disconnect();
+}
 
 int main(int argc, char *argv[]) {
     char flag_spid = 0;
@@ -129,7 +178,6 @@ int main(int argc, char *argv[]) {
     char flag_api_key = 0;
     char flag_ca = 0;
     char flag_usage = 0;
-    char flag_noproxy = 0;
     char flag_prod = 0;
     char flag_stdio = 0;
     char flag_isv_product_id = 0;
@@ -138,11 +186,8 @@ int main(int argc, char *argv[]) {
     char *sigrl = NULL;
     config_t config;
     int oops;
-    IAS_Connection *ias = NULL;
     char *port = NULL;
-#ifndef _WIN32
     struct sigaction sact;
-#endif
 
     /* Command line options */
 
@@ -168,11 +213,9 @@ int main(int argc, char *argv[]) {
                     {"ias-sec-api-key",      required_argument, 0, 'j'},
                     {"key",                  required_argument, 0, 'k'},
                     {"linkable",             no_argument,       0, 'l'},
-                    {"proxy",                required_argument, 0, 'p'},
                     {"api-version",          required_argument, 0, 'r'},
                     {"spid",                 required_argument, 0, 's'},
                     {"verbose",              no_argument,       0, 'v'},
-                    {"no-proxy",             no_argument,       0, 'x'},
                     {"stdio",                no_argument,       0, 'z'},
                     {0, 0,                                      0, 0}
             };
@@ -391,15 +434,6 @@ int main(int argc, char *argv[]) {
                 config.quote_type = SGX_LINKABLE_SIGNATURE;
                 break;
 
-            case 'p':
-                if (flag_noproxy) usage();
-                if (!get_proxy(&config.proxy_server, &config.proxy_port, optarg)) {
-                    eprintf("%s: could not extract proxy info\n", optarg);
-                    return 1;
-                }
-                // Break the URL into host and port. This is a simplistic algorithm.
-                break;
-
             case 'r':
                 config.apiver = atoi(optarg);
                 if (config.apiver < IAS_MIN_VERSION || config.apiver >
@@ -425,11 +459,6 @@ int main(int argc, char *argv[]) {
 
             case 'v':
                 verbose = 1;
-                break;
-
-            case 'x':
-                if (config.proxy_server != NULL) usage();
-                flag_noproxy = 1;
                 break;
 
             case 'z':
@@ -520,10 +549,8 @@ int main(int argc, char *argv[]) {
 
     if (debug) {
         eprintf("+++ using private key:\n");
-        PEM_write_PrivateKey(stderr, config.service_private_key, NULL,
-                             NULL, 0, 0, NULL);
-        PEM_write_PrivateKey(fplog, config.service_private_key, NULL,
-                             NULL, 0, 0, NULL);
+        PEM_write_PrivateKey(stderr, config.service_private_key, NULL, NULL, 0, 0, NULL);
+        PEM_write_PrivateKey(fplog, config.service_private_key, NULL, NULL, 0, 0, NULL);
     }
 
     if (!flag_spid) {
@@ -573,11 +600,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (flag_noproxy) ias->proxy_mode(IAS_PROXY_NONE);
-    else if (config.proxy_server != NULL) {
-        ias->proxy_mode(IAS_PROXY_FORCE);
-        ias->proxy(config.proxy_server, config.proxy_port);
-    }
+    ias->proxy_mode(IAS_PROXY_NONE);
 
     if (config.user_agent != NULL) {
         if (!ias->agent(config.user_agent)) {
@@ -633,51 +656,7 @@ int main(int argc, char *argv[]) {
     /* If we're running in server mode, we'll block here.  */
 
     while (msgio->server_loop()) {
-        ra_session_t session;
-        sgx_ra_msg1_t msg1;
-        sgx_ra_msg2_t msg2;
-        ra_msg4_t msg4;
-
-        memset(&session, 0, sizeof(ra_session_t));
-
-        /* Read message 0 and 1, then generate message 2 */
-
-        if (!process_msg01(msgio, ias, &msg1, &msg2, &sigrl, &config, &session)) {
-            eprintf("error processing msg1\n");
-            goto disconnect;
-        }
-
-        /* Send message 2 */
-
-        /*
-         * sgx_ra_msg2_t is a struct with a flexible array member at the
-         * end (defined as uint8_t sig_rl[]). We could go to all the
-         * trouble of building a byte array large enough to hold the
-         * entire struct and then cast it as (sgx_ra_msg2_t) but that's
-         * a lot of work for no gain when we can just send the fixed
-         * portion and the array portion by hand.
-         */
-
-        dividerWithText(stderr, "Copy/Paste Msg2 Below to Client");
-        dividerWithText(fplog, "Msg2 (send to Client)");
-
-        msgio->send_partial((void *) &msg2, sizeof(sgx_ra_msg2_t));
-        fsend_msg_partial(fplog, (void *) &msg2, sizeof(sgx_ra_msg2_t));
-
-        msgio->send(&msg2.sig_rl, msg2.sig_rl_size);
-        fsend_msg(fplog, &msg2.sig_rl, msg2.sig_rl_size);
-
-        edivider();
-
-        /* Read message 3, and generate message 4 */
-
-        if (!process_msg3(msgio, ias, &msg1, &msg4, &config, &session)) {
-            eprintf("error processing msg3\n");
-            goto disconnect;
-        }
-
-        disconnect:
-        msgio->disconnect();
+        loop_routine();
     }
 
     crypto_destroy();
@@ -797,7 +776,7 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4
         eprintf("msg3.quote.signature_len = %s\n", hexstring(&q->signature_len, sizeof(uint32_t)));
         eprintf("msg3.quote.signature     = %s\n", hexstring(&q->signature, q->signature_len));
 
-        edividerWithText("Enclave Quote (base64) ==> Send to IAS");
+        edividerWithText("isv_enclave Quote (base64) ==> Send to IAS");
 
         eputs(b64quote);
 
@@ -855,7 +834,7 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4
         sha256_digest(msg_rdata, 144, vfy_rdata);
 
         if (verbose) {
-            edividerWithText("Enclave Report Verification");
+            edividerWithText("isv_enclave Report Verification");
             if (debug) {
                 eprintf("VK                 = %s\n",
                         hexstring(session->vk, 16));
@@ -908,7 +887,7 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4
             // The enclave report is valid so we can trust the report
             // data.
 
-            edividerWithText("Enclave Report Details");
+            edividerWithText("isv_enclave Report Details");
 
             eprintf("cpu_svn     = %s\n",
                     hexstring(&r->cpu_svn, sizeof(sgx_cpu_svn_t)));
@@ -988,10 +967,7 @@ int process_msg3(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4
 
 int process_msg01(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
                   sgx_ra_msg2_t *msg2, char **sigrl, config_t *config, ra_session_t *session) {
-    struct msg01_struct {
-        uint32_t msg0_extended_epid_group_id;
-        sgx_ra_msg1_t msg1;
-    } *msg01;
+    ra_msg01_t *msg01;
     size_t blen = 0;
     char *buffer = NULL;
     unsigned char digest[32], r[32], s[32], gb_ga[128];
@@ -1018,8 +994,7 @@ int process_msg01(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
 
     if (verbose) {
         edividerWithText("Msg0 Details (from Client)");
-        eprintf("msg0.extended_epid_group_id = %u\n",
-                msg01->msg0_extended_epid_group_id);
+        eprintf("msg0.extended_epid_group_id = %u\n", msg01->msg0_extended_epid_group_id);
         edivider();
     }
 
@@ -1040,12 +1015,9 @@ int process_msg01(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
 
     if (verbose) {
         edividerWithText("Msg1 Details (from Client)");
-        eprintf("msg1.g_a.gx = %s\n",
-                hexstring(&msg1->g_a.gx, sizeof(msg1->g_a.gx)));
-        eprintf("msg1.g_a.gy = %s\n",
-                hexstring(&msg1->g_a.gy, sizeof(msg1->g_a.gy)));
-        eprintf("msg1.gid    = %s\n",
-                hexstring(&msg1->gid, sizeof(msg1->gid)));
+        eprintf("msg1.g_a.gx = %s\n", hexstring(&msg1->g_a.gx, sizeof(msg1->g_a.gx)));
+        eprintf("msg1.g_a.gy = %s\n", hexstring(&msg1->g_a.gy, sizeof(msg1->g_a.gy)));
+        eprintf("msg1.gid    = %s\n", hexstring(&msg1->gid, sizeof(msg1->gid)));
         edivider();
     }
 
@@ -1135,8 +1107,7 @@ int process_msg01(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
 
     /* Get the sigrl */
 
-    if (!get_sigrl(ias, config->apiver, msg1->gid, sigrl,
-                   &msg2->sig_rl_size)) {
+    if (!get_sigrl(ias, config->apiver, msg1->gid, sigrl, &msg2->sig_rl_size)) {
 
         eprintf("could not retrieve the sigrl\n");
         free(msg01);
@@ -1192,387 +1163,6 @@ int process_msg01(MsgIO *msgio, IAS_Connection *ias, sgx_ra_msg1_t *msg1,
     return 1;
 }
 
-int derive_kdk(EVP_PKEY *Gb, unsigned char kdk[16], sgx_ec256_public_t g_a,
-               config_t *config) {
-    unsigned char *Gab_x;
-    size_t slen;
-    EVP_PKEY *Ga;
-    unsigned char cmackey[16];
-
-    memset(cmackey, 0, 16);
-
-    /*
-     * Compute the shared secret using the peer's public key and a generated
-     * public/private key.
-     */
-
-    Ga = key_from_sgx_ec256(&g_a);
-    if (Ga == NULL) {
-        crypto_perror("key_from_sgx_ec256");
-        return 0;
-    }
-
-    /* The shared secret in a DH exchange is the x-coordinate of Gab */
-    Gab_x = key_shared_secret(Gb, Ga, &slen);
-    if (Gab_x == NULL) {
-        crypto_perror("key_shared_secret");
-        return 0;
-    }
-
-    /* We need it in little endian order, so reverse the bytes. */
-    /* We'll do this in-place. */
-
-    if (debug) eprintf("+++ shared secret= %s\n", hexstring(Gab_x, slen));
-
-    reverse_bytes(Gab_x, Gab_x, slen);
-
-    if (debug) eprintf("+++ reversed     = %s\n", hexstring(Gab_x, slen));
-
-    /* Now hash that to get our KDK (Key Definition Key) */
-
-    /*
-     * KDK = AES_CMAC(0x00000000000000000000000000000000, secret)
-     */
-
-    cmac128(cmackey, Gab_x, slen, kdk);
-
-    return 1;
-}
-
-int get_sigrl(IAS_Connection *ias, int version, sgx_epid_group_id_t gid,
-              char **sig_rl, uint32_t *sig_rl_size) {
-    IAS_Request *req = NULL;
-    int oops = 1;
-    string sigrlstr;
-
-    try {
-        oops = 0;
-        req = new IAS_Request(ias, (uint16_t) version);
-    }
-    catch (...) {
-        oops = 1;
-    }
-
-    if (oops) {
-        eprintf("Exception while creating IAS request object\n");
-        delete req;
-        return 0;
-    }
-
-    ias_error_t ret = IAS_OK;
-
-    while (1) {
-
-        ret = req->sigrl(*(uint32_t *) gid, sigrlstr);
-        if (debug) {
-            eprintf("+++ RET = %zu\n, ret");
-            eprintf("+++ SubscriptionKeyID = %d\n", (int) ias->getSubscriptionKeyID());
-        }
-
-        if (ret == IAS_UNAUTHORIZED && (ias->getSubscriptionKeyID() == IAS_Connection::SubscriptionKeyID::Primary)) {
-
-            if (debug) {
-                eprintf("+++ IAS Primary Subscription Key failed with IAS_UNAUTHORIZED\n");
-                eprintf("+++ Retrying with IAS Secondary Subscription Key\n");
-            }
-
-            // Retry with Secondary Subscription Key
-            ias->SetSubscriptionKeyID(IAS_Connection::SubscriptionKeyID::Secondary);
-            continue;
-        } else if (ret != IAS_OK) {
-
-            delete req;
-            return 0;
-        }
-
-        break;
-    }
-
-
-    *sig_rl = strdup(sigrlstr.c_str());
-    if (*sig_rl == NULL) {
-        delete req;
-        return 0;
-    }
-
-    *sig_rl_size = (uint32_t) sigrlstr.length();
-
-    delete req;
-
-    return 1;
-}
-
-int get_attestation_report(IAS_Connection *ias, int version,
-                           const char *b64quote, sgx_ps_sec_prop_desc_t secprop, ra_msg4_t *msg4,
-                           int strict_trust) {
-    IAS_Request *req = NULL;
-    map<string, string> payload;
-    vector<string> messages;
-    ias_error_t status;
-    string content;
-
-    try {
-        req = new IAS_Request(ias, (uint16_t) version);
-    }
-    catch (...) {
-        eprintf("Exception while creating IAS request object\n");
-        if (req != NULL) delete req;
-        return 0;
-    }
-
-    payload.insert(make_pair("isvEnclaveQuote", b64quote));
-
-    status = req->report(payload, content, messages);
-    if (status == IAS_OK) {
-        JSON reportObj = JSON::Load(content);
-
-        if (verbose) {
-            edividerWithText("Report Body");
-            eprintf("%s\n", content.c_str());
-            edivider();
-            if (messages.size()) {
-                edividerWithText("IAS Advisories");
-                for (vector<string>::const_iterator i = messages.begin();
-                     i != messages.end(); ++i) {
-
-                    eprintf("%s\n", i->c_str());
-                }
-                edivider();
-            }
-        }
-
-        if (verbose) {
-            edividerWithText("IAS Report - JSON - Required Fields");
-            if (version >= 3) {
-                eprintf("version               = %d\n",
-                        reportObj["version"].ToInt());
-            }
-            eprintf("id:                   = %s\n",
-                    reportObj["id"].ToString().c_str());
-            eprintf("timestamp             = %s\n",
-                    reportObj["timestamp"].ToString().c_str());
-            eprintf("isvEnclaveQuoteStatus = %s\n",
-                    reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-            eprintf("isvEnclaveQuoteBody   = %s\n",
-                    reportObj["isvEnclaveQuoteBody"].ToString().c_str());
-
-            edividerWithText("IAS Report - JSON - Optional Fields");
-
-            eprintf("platformInfoBlob  = %s\n",
-                    reportObj["platformInfoBlob"].ToString().c_str());
-            eprintf("revocationReason  = %s\n",
-                    reportObj["revocationReason"].ToString().c_str());
-            eprintf("pseManifestStatus = %s\n",
-                    reportObj["pseManifestStatus"].ToString().c_str());
-            eprintf("pseManifestHash   = %s\n",
-                    reportObj["pseManifestHash"].ToString().c_str());
-            eprintf("nonce             = %s\n",
-                    reportObj["nonce"].ToString().c_str());
-            eprintf("epidPseudonym     = %s\n",
-                    reportObj["epidPseudonym"].ToString().c_str());
-            edivider();
-        }
-
-        /*
-         * If the report returned a version number (API v3 and above), make
-         * sure it matches the API version we used to fetch the report.
-         *
-         * For API v3 and up, this field MUST be in the report.
-         */
-
-        if (reportObj.hasKey("version")) {
-            unsigned int rversion = (unsigned int) reportObj["version"].ToInt();
-            if (verbose)
-                eprintf("+++ Verifying report version against API version\n");
-            if (version != rversion) {
-                eprintf("Report version %u does not match API version %u\n",
-                        rversion, version);
-                delete req;
-                return 0;
-            }
-        } else if (version >= 3) {
-            eprintf("attestation report version required for API version >= 3\n");
-            delete req;
-            return 0;
-        }
-
-        /*
-         * This sample's attestion policy is based on isvEnclaveQuoteStatus:
-         *
-         *   1) if "OK" then return "Trusted"
-         *
-          *   2) if "CONFIGURATION_NEEDED" then return
-         *       "NotTrusted_ItsComplicated" when in --strict-trust-mode
-         *        and "Trusted_ItsComplicated" otherwise
-         *
-         *   3) return "NotTrusted" for all other responses
-         *
-         *
-         * ItsComplicated means the client is not trusted, but can
-         * conceivable take action that will allow it to be trusted
-         * (such as a BIOS update).
-          */
-
-        /*
-         * Simply check to see if status is OK, else enclave considered
-         * not trusted
-         */
-
-        memset(msg4, 0, sizeof(ra_msg4_t));
-
-        if (verbose) edividerWithText("ISV Enclave Trust Status");
-
-        if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("OK"))) {
-            msg4->status = Trusted;
-            if (verbose) eprintf("Enclave TRUSTED\n");
-        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("CONFIGURATION_NEEDED"))) {
-            if (strict_trust) {
-                msg4->status = NotTrusted_ItsComplicated;
-                if (verbose)
-                    eprintf("Enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
-                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-            } else {
-                if (verbose)
-                    eprintf("Enclave TRUSTED and COMPLICATED - Reason: %s\n",
-                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-                msg4->status = Trusted_ItsComplicated;
-            }
-        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("GROUP_OUT_OF_DATE"))) {
-            msg4->status = NotTrusted_ItsComplicated;
-            if (verbose)
-                eprintf("Enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
-                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-        } else {
-            msg4->status = NotTrusted;
-            if (verbose)
-                eprintf("Enclave NOT TRUSTED - Reason: %s\n",
-                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-        }
-
-
-        /* Check to see if a platformInfoBlob was sent back as part of the
-         * response */
-
-        if (!reportObj["platformInfoBlob"].IsNull()) {
-            if (verbose) eprintf("A Platform Info Blob (PIB) was provided by the IAS\n");
-
-            /* The platformInfoBlob has two parts, a TVL Header (4 bytes),
-             * and TLV Payload (variable) */
-
-            string pibBuff = reportObj["platformInfoBlob"].ToString();
-
-            /* remove the TLV Header (8 base16 chars, ie. 4 bytes) from
-             * the PIB Buff. */
-
-            pibBuff.erase(pibBuff.begin(), pibBuff.begin() + (4 * 2));
-
-            int ret = from_hexstring((unsigned char *) &msg4->platformInfoBlob,
-                                     pibBuff.c_str(), pibBuff.length() / 2);
-        } else {
-            if (verbose) eprintf("A Platform Info Blob (PIB) was NOT provided by the IAS\n");
-        }
-
-        delete req;
-        return 1;
-    }
-
-    eprintf("attestation query returned %lu: \n", status);
-
-    switch (status) {
-        case IAS_QUERY_FAILED:
-            eprintf("Could not query IAS\n");
-            break;
-        case IAS_BADREQUEST:
-            eprintf("Invalid payload\n");
-            break;
-        case IAS_UNAUTHORIZED:
-            eprintf("Failed to authenticate or authorize request\n");
-            break;
-        case IAS_SERVER_ERR:
-            eprintf("An internal error occurred on the IAS server\n");
-            break;
-        case IAS_UNAVAILABLE:
-            eprintf("Service is currently not able to process the request. Try again later.\n");
-            break;
-        case IAS_INTERNAL_ERROR:
-            eprintf("An internal error occurred while processing the IAS response\n");
-            break;
-        case IAS_BAD_CERTIFICATE:
-            eprintf("The signing certificate could not be validated\n");
-            break;
-        case IAS_BAD_SIGNATURE:
-            eprintf("The report signature could not be validated\n");
-            break;
-        default:
-            if (status >= 100 && status < 600) {
-                eprintf("Unexpected HTTP response code\n");
-            } else {
-                eprintf("An unknown error occurred.\n");
-            }
-    }
-
-    delete req;
-
-    return 0;
-}
-
-// Break a URL into server and port. NOTE: This is a simplistic algorithm.
-
-int get_proxy(char **server, unsigned int *port, const char *url) {
-    size_t idx1, idx2;
-    string lcurl, proto, srv, sport;
-
-    if (url == NULL) return 0;
-
-    lcurl = string(url);
-    // Make lower case for sanity
-    transform(lcurl.begin(), lcurl.end(), lcurl.begin(), ::tolower);
-
-    idx1 = lcurl.find_first_of(":");
-    proto = lcurl.substr(0, idx1);
-    if (proto == "https") *port = 443;
-    else if (proto == "http") *port = 80;
-    else return 0;
-
-    idx1 = lcurl.find_first_not_of("/", idx1 + 1);
-    if (idx1 == string::npos) return 0;
-
-    idx2 = lcurl.find_first_of(":", idx1);
-    if (idx2 == string::npos) {
-        idx2 = lcurl.find_first_of("/", idx1);
-        if (idx2 == string::npos) srv = lcurl.substr(idx1);
-        else srv = lcurl.substr(idx1, idx2 - idx1);
-    } else {
-        srv = lcurl.substr(idx1, idx2 - idx1);
-        idx1 = idx2 + 1;
-        idx2 = lcurl.find_first_of("/", idx1);
-
-        if (idx2 == string::npos) sport = lcurl.substr(idx1);
-        else sport = lcurl.substr(idx1, idx2 - idx1);
-
-        try {
-            *port = (unsigned int) ::stoul(sport);
-        }
-        catch (...) {
-            return 0;
-        }
-    }
-
-    try {
-        *server = new char[srv.length() + 1];
-    }
-    catch (...) {
-        return 0;
-    }
-
-    memcpy(*server, srv.c_str(), srv.length());
-    (*server)[srv.length()] = 0;
-
-    return 1;
-}
-
-#ifndef _WIN32
-
 /* We don't care which signal it is since we're shutting down regardless */
 
 void cleanup_and_exit(int signo) {
@@ -1590,7 +1180,6 @@ void cleanup_and_exit(int signo) {
     exit(1);
 }
 
-#endif
 
 #define NNL <<endl<<endl<<
 #define NL <<endl<<
@@ -1650,14 +1239,10 @@ void usage() {
          "  -k, --key=HEXSTRING      The private key as a hex string. See --key-file" NL
          "                           for notes. Can't combine with --key-file." NNL
          "  -l, --linkable           Request a linkable quote (default: unlinkable)." NNL
-         "  -p, --proxy=PROXYURL     Use the proxy server at PROXYURL when contacting" NL
-         "                           IAS. Can't combine with --no-proxy" NNL
          "  -r, --api-version=N      Use version N of the IAS API (default: " << to_string(IAS_API_DEF_VERSION)
          << ")" NNL
          "  -v, --verbose            Be verbose. Print message structure details and" NL
          "                           the results of intermediate operations to stderr." NNL
-         "  -x, --no-proxy           Do not use a proxy (force a direct connection), " NL
-         "                           overriding environment." NNL
          "  -z  --stdio              Read from stdin and write to stdout instead of" NL
          "                           running as a network server." << endl;
 

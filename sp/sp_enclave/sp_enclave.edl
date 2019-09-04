@@ -1,0 +1,16 @@
+enclave {
+    include "protocol.h"
+
+	trusted {
+		public sgx_status_t ecall_do_attestation([in] ra_msg01_t* msg01, [out] ra_msg4_t *msg4, [out] attestation_status_t* att_status, [out] attestation_error_t *att_error);
+	};
+
+	untrusted {
+	    void ocall_pre_get_sigrl([out, isary] sgx_epid_group_id_t gid, [in] sgx_spid_t *spid, [in] uint16_t *quote_type, [in] uint32_t *sigrl_length);
+        void ocall_get_sigrl(uint32_t sigrl_size, [in, size=sigrl_size]uint8_t *sigrl);
+
+	    /* public <ret> ocall_get_sigrl([out, isary] sgx_epid_group_id_t gid], [in, size=sig_rl_size] char* sig_rl, uint32_t sig_rl_size) */
+	    /* public <ret> ocall_get_msg3(gid) */
+	    /* public <ret> ocall_get_sigrl(gid) */
+	};
+};

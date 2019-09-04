@@ -21,7 +21,7 @@ using namespace std;
 
 //FIXME: #include "config.h"
 
-#include "Enclave_u.h"
+#include "isv_enclave_u.h"
 
 #if !defined(SGX_HW_SIM) && !defined(_WIN32)
 
@@ -691,23 +691,23 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         exit(1);
     }
 
-    edividerWithText("Enclave Trust Status from Service Provider");
+    edividerWithText("isv_enclave Trust Status from Service Provider");
 
     enclaveTrusted = msg4->status;
     if (enclaveTrusted == Trusted) {
-        eprintf("Enclave TRUSTED\n");
+        eprintf("isv_enclave TRUSTED\n");
     } else if (enclaveTrusted == NotTrusted) {
-        eprintf("Enclave NOT TRUSTED\n");
+        eprintf("isv_enclave NOT TRUSTED\n");
     } else if (enclaveTrusted == Trusted_ItsComplicated) {
         // Trusted, but client may be untrusted in the future unless it
         // takes action.
 
-        eprintf("Enclave Trust is TRUSTED and COMPLICATED. The client is out of date and\nmay not be trusted in the future depending on the service provider's  policy.\n");
+        eprintf("isv_enclave Trust is TRUSTED and COMPLICATED. The client is out of date and\nmay not be trusted in the future depending on the service provider's  policy.\n");
     } else {
         // Not Trusted, but client may be able to take action to become
         // trusted.
 
-        eprintf("Enclave Trust is NOT TRUSTED and COMPLICATED. The client is out of date.\n");
+        eprintf("isv_enclave Trust is NOT TRUSTED and COMPLICATED. The client is out of date.\n");
     }
 
     /* check to see if we have a PIB by comparing to empty PIB */

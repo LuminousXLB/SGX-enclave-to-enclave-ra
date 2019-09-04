@@ -15,9 +15,8 @@ in the License.
 
 */
 
-//#include "../config.h"
 
-#include "Enclave_t.h"
+#include "isv_enclave_t.h"
 #include <string.h>
 #include <sgx_utils.h>
 #include <sgx_tae_service.h>
