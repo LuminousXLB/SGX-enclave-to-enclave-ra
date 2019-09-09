@@ -39,10 +39,10 @@ int recv_msg01(vector<uint8_t> &msg01_buf) {
     return rv;
 }
 
-int recv_msg3(sgx_ra_msg3_t *&msg3, uint32_t &msg3_length) {
+int recv_msg3(vector<uint8_t> &msg3_buf) {
     fprintf(stderr, "Waiting for msg3\n");
 
-    int rv = msgio->read((void **) &msg3, (size_t *) &msg3_length);
+    int rv = msgio->read(msg3_buf);
 
     if (rv == -1) {
         eprintf("system error reading msg3\n");
@@ -52,11 +52,11 @@ int recv_msg3(sgx_ra_msg3_t *&msg3, uint32_t &msg3_length) {
         return 0;
     }
     if (debug) {
-        eprintf("+++ read %lu bytes\n", msg3_length);
+        eprintf("+++ read %lu bytes\n", msg3_buf.size());
     }
 
     if (verbose) {
-
+        const auto *msg3 = (const sgx_ra_msg3_t *) msg3_buf.data();
         edividerWithText("Msg3 Details (from Client)");
         eprintf("msg3.mac                 = %s\n", hexstring(&msg3->mac, sizeof(msg3->mac)));
         eprintf("msg3.g_a.gx              = %s\n", hexstring(msg3->g_a.gx, sizeof(msg3->g_a.gx)));

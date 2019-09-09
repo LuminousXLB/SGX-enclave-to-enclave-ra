@@ -23,16 +23,18 @@ in the License.
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <exception>
+//#include <exception>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "hexutil.h"
+//#include "hexutil.h"
 #include "msgio.h"
 #include "common.h"
+#include <cppcodec/hex_lower.hpp>
 
 using namespace std;
 
+using msgio_codec = cppcodec::hex_lower;
 
 #ifndef _WIN32
 # ifndef INVALID_SOCKET
@@ -43,7 +45,6 @@ using namespace std;
 /* With no arguments, we read/write to stdin/stdout using stdio */
 
 MsgIO::MsgIO() {
-    use_stdio = true;
     s = -1;
     ls = -1;
 }
@@ -54,8 +55,6 @@ MsgIO::MsgIO(const char *peer, const char *port) {
     int rv, proto;
     struct addrinfo *addrs, *addr, hints;
     s = ls = -1;
-
-    use_stdio = false;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -153,8 +152,6 @@ int MsgIO::server_loop() {
     struct sockaddr_in6 cliaddr; // Large enough for an IP4 or IP6 peer
     socklen_t slen = sizeof(struct sockaddr_in6);
 
-    if (use_stdio) return 1;
-
     // This will block until we get a client.
 
     printf("Waiting for a client to connect...\n");
@@ -198,8 +195,6 @@ int MsgIO::server_loop() {
 }
 
 void MsgIO::disconnect() {
-    if (use_stdio) return;
-
     if (s != -1) {
         shutdown(s, SHUT_RDWR);
         close(s);
@@ -207,90 +202,97 @@ void MsgIO::disconnect() {
 }
 
 int MsgIO::read(vector<uint8_t> &message_buffer) {
-    uint8_t *dest;
-    size_t size;
-    if (read(reinterpret_cast<void **>(&dest), &size)) {
-        message_buffer.assign(dest, dest + size);
+    string encoded_message;
+
+    if (read(encoded_message)) {
+        message_buffer = msgio_codec::decode(encoded_message);
         return 1;
     } else {
         return 0;
     }
 }
 
-int MsgIO::read(void **dest, size_t *sz) {
-    ssize_t bread = 0;
-    int ws;
-
-    if (use_stdio) return read_msg(dest, sz);
-
+int MsgIO::read(string &encoded_message) {
     /*
      * We don't know how many bytes are coming, so read until we find a
      * newline.
      */
 
-    if (sz) *sz = 0;
+    size_t idx; // newline index
+    int ws;     // trail length, different between "/r/n" and "/n"
 
-    while (true) {
-        again:
+    do {
+        ssize_t bread = 0;
+
         bread = recv(s, lbuffer, sizeof(lbuffer), 0);
+
         if (bread == -1) {
-            if (errno == EINTR) goto again;
+            if (errno == EINTR) continue;
             perror("recv");
             return -1;
         }
-        if (bread > 0) {
-            size_t idx;
 
-            if (debug) eprintf("+++ read %ld bytes from socket\n", bread);
+        if (bread > 0) {
+            if (debug) {
+                eprintf("+++ read %ld bytes from socket\n", bread);
+            }
+
             rbuffer.append(lbuffer, bread);
             idx = rbuffer.find("\r\n");
-            if (idx == string::npos) {
-                idx = rbuffer.find('\n');
-                if (idx == string::npos) continue;
+            if (idx != string::npos) {
+                ws = 2;
+                break;
+            }
+
+            idx = rbuffer.find('\n');
+            if (idx != string::npos) {
                 ws = 1;
-            } else ws = 2;
-
-            if (idx == 0) return 1;
-            else if (idx % 2) {
-                eprintf("read odd byte count %zu\n", idx);
-                return 0;
+                break;
             }
-            if (sz != nullptr) *sz = idx;
+        } else {
+            return 0;
+        }
+    } while (true);
 
-            *dest = (char *) malloc(idx / 2);
-            if (*dest == nullptr) {
-                perror("malloc");
-                return -1;
-            }
 
-            if (debug) {
-                edividerWithText("read buffer");
-                fwrite(rbuffer.c_str(), 1, idx, stdout);
-                printf("\n");
-                edivider();
-            }
-
-            from_hexstring((unsigned char *) *dest, rbuffer.c_str(), idx / 2);
-            rbuffer.erase(0, idx + ws);
-
-            return 1;
-        } else return 0;
+    if (idx == 0) {
+        return 1;
+    } else if (idx % 2) {
+        eprintf("read odd byte count %zu\n", idx);
+        return 0;
     }
 
-    return -1;
+    if (debug) {
+        edividerWithText("read buffer");
+        fwrite(rbuffer.c_str(), 1, idx, stdout);
+        printf("\n");
+        edivider();
+    }
+
+    encoded_message = rbuffer.substr(0, idx);
+    rbuffer.erase(0, idx + ws);
+
+    return 1;
 }
 
-void MsgIO::send(void *src, size_t sz) {
+void MsgIO::send_partial(const vector<uint8_t> &message_buffer) {
+    wbuffer.append(msgio_codec::encode(message_buffer));
+}
+
+
+void MsgIO::send(const vector<uint8_t> &message_buffer) {
+    wbuffer.append(msgio_codec::encode(message_buffer));
+    wbuffer.append("\n");
+    send();
+}
+
+void MsgIO::send_partial(void *src, size_t sz) {
+    wbuffer.append(msgio_codec::encode((uint8_t *) src, sz));
+}
+
+void MsgIO::send() {
     ssize_t bsent;
     size_t len;
-
-    if (use_stdio) {
-        send_msg(src, sz);
-        return;
-    }
-
-    wbuffer.append(hexstring(src, sz));
-    wbuffer.append("\n");
 
     while ((len = wbuffer.length())) {
         again:
@@ -311,11 +313,4 @@ void MsgIO::send(void *src, size_t sz) {
     }
 }
 
-void MsgIO::send_partial(void *src, size_t sz) {
-    if (use_stdio) {
-        send_msg_partial(src, sz);
-        return;
-    }
 
-    wbuffer.append(hexstring(src, sz));
-}

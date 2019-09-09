@@ -31,9 +31,7 @@ in the License.
 #include "enclave_verify.h"
 #include "sp_enclave_u.h"
 #include "tmp_config.h"
-
-using namespace std;
-
+#include "loop_routine.h"
 #include <map>
 #include <string>
 #include <iostream>
@@ -42,15 +40,12 @@ using namespace std;
 #include <crypto.h>
 #include "key_exchange_message.h"
 
+using namespace std;
+
+
 void cleanup_and_exit(int signo);
 
-#if 0
-int process_msg01(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1, sgx_ra_msg2_t *msg2, char **sigrl,
-                  config_t *config, ra_session_t *session);
 
-int process_msg3(MsgIO *msg, IAS_Connection *ias, sgx_ra_msg1_t *msg1, ra_msg4_t *msg4, config_t *config,
-                 ra_session_t *session);
-# endif
 sgx_enclave_id_t global_eid;
 char debug = 0;
 char verbose = 0;
@@ -59,64 +54,6 @@ IAS_Connection *ias = nullptr;
 extern sgx_spid_t SP_SPID;
 extern sgx_quote_sign_type_t SP_QUOTE_TYPE;
 config_t config;
-
-
-void loop_routine() {
-    sgx_status_t status;
-    sgx_status_t sgx_status;
-    attestation_xstatus_t att_status;
-
-    /* Read message 0 and 1 */
-    vector<uint8_t> msg01_buffer;
-    recv_msg01(msg01_buffer);
-
-    eprintf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
-    hexdump(stderr, msg01_buffer.data(), msg01_buffer.size());
-
-    const auto *msg01 = (const ra_msg01_t *) msg01_buffer.data();
-    ra_msg4_t msg4;
-    status = ecall_do_attestation(global_eid, &sgx_status, *msg01, &msg4, &att_status);
-    eprintf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
-
-
-    if (att_status.error != NoErrorInformation) {
-//        TODO: print error information
-        eprintf("Attestation Error: %d\n", att_status.error);
-    }
-
-    if (status != SGX_SUCCESS) {
-        goto disconnect;
-    }
-
-    if (sgx_status != SGX_SUCCESS) {
-        goto disconnect;
-    }
-
-//    TODO: Send message4
-
-#if 0
-
-    /* Read message 3, and generate message 4 */
-
-    if (!process_msg3(msgio, ias, &msg1, &msg4, &config, &session)) {
-        eprintf("error processing msg3\n");
-        goto disconnect;
-    }
-#endif
-    disconnect:
-
-    if (status != SGX_SUCCESS) {
-        print_error_message(status);
-        exit(EXIT_FAILURE);
-    }
-
-    if (sgx_status != SGX_SUCCESS) {
-        print_error_message(sgx_status);
-        exit(EXIT_FAILURE);
-    }
-
-    msgio->disconnect();
-}
 
 int main(int argc, char *argv[]) {
 
@@ -158,10 +95,10 @@ int main(int argc, char *argv[]) {
     sact.sa_flags = 0;
     sact.sa_handler = &cleanup_and_exit;
 
-    if (sigaction(SIGHUP, &sact, NULL) == -1) perror("sigaction: SIGHUP");
-    if (sigaction(SIGINT, &sact, NULL) == -1) perror("sigaction: SIGHUP");
-    if (sigaction(SIGTERM, &sact, NULL) == -1) perror("sigaction: SIGHUP");
-    if (sigaction(SIGQUIT, &sact, NULL) == -1) perror("sigaction: SIGHUP");
+    if (sigaction(SIGHUP, &sact, nullptr) == -1) perror("sigaction: SIGHUP");
+    if (sigaction(SIGINT, &sact, nullptr) == -1) perror("sigaction: SIGHUP");
+    if (sigaction(SIGTERM, &sact, nullptr) == -1) perror("sigaction: SIGHUP");
+    if (sigaction(SIGQUIT, &sact, nullptr) == -1) perror("sigaction: SIGHUP");
 #endif
 
 //    Launch the enclave
@@ -173,7 +110,7 @@ int main(int argc, char *argv[]) {
     /* If we're running in server mode, we'll block here.  */
 
     while (msgio->server_loop()) {
-        loop_routine();
+        do_attestation(global_eid, msgio, ias, config);
     }
 
     crypto_destroy();

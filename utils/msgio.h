@@ -59,13 +59,16 @@ public:
 
     void disconnect();
 
-    int read(void **dest, size_t *sz);
+    int read(string &encoded_message);
 
     int read(vector<uint8_t> &buffer);
 
+    void send_partial(const vector<uint8_t> &message_buffer);
+    void send(const vector<uint8_t> &message_buffer);
+
     void send_partial(void *buf, size_t f_size);
 
-    void send(void *buf, size_t f_size);
+    void send();
 };
 
 

@@ -2,19 +2,14 @@ enclave {
     include "protocol.h"
 
 	trusted {
-		public sgx_status_t ecall_do_attestation(ra_msg01_t msg01, [out] ra_msg4_t *msg4, [out] attestation_xstatus_t* att_status);
+	    public sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_type, ra_msg01_t msg01, [in, size=sigrl_size] const char *sigrl, uint32_t sigrl_size, [out, size=msg2_size] sgx_ra_msg2_t *msg2, uint32_t msg2_size, [out] attestation_error_t *att_error);
+
+        public sgx_status_t ecall_sp_proc_msg3([in, size=msg3_size] const sgx_ra_msg3_t *msg3, uint32_t msg3_size, [in, string] const char *attestation_report, [out] ra_msg4_t *msg4, [out] attestation_error_t *att_error);
+
 	};
 
 	untrusted {
 	    void ocall_eputs([in, string] const char* macro_file, [in, string] const char* macro_function, int macro_line, [in, string] const char* message);
 
-	    void ocall_pre_get_sigrl([in, isary] sgx_epid_group_id_t gid, [out] sgx_spid_t* spid, [out] sgx_quote_sign_type_t* quote_type, [out, count=1] uint32_t *sigrl_length);
-        void ocall_get_sigrl(uint32_t sigrl_size, [out, size=sigrl_size] uint8_t *sigrl_buffer);
-
-        void ocall_pre_get_msg3(sgx_ra_msg2_t msg2, [out] uint32_t *msg3_length);
-        void ocall_get_msg3(uint32_t msg3_size, [out, size=msg3_size] uint8_t *msg3_buffer);
-
-	    /* public <ret> ocall_get_msg3(gid) */
-	    /* public <ret> ocall_get_sigrl(gid) */
 	};
 };

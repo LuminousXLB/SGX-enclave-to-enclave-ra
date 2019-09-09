@@ -1,7 +1,7 @@
 #ifndef SGX_ENCLAVE_TO_ENCLAVE_RA_CRYPTO_UTILS_H
 #define SGX_ENCLAVE_TO_ENCLAVE_RA_CRYPTO_UTILS_H
 
-#include "common.h"
+#include "../common.h"
 #include <sgx_tcrypto.h>
 #include <string>
 #include <cstring>

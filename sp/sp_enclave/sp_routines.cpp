@@ -1,5 +1,8 @@
+//#include "httpparser/httpresponseparser.h"
+//#include "httpparser/response.h"
+
 #include "sp_routines.h"
-#include "crypto_utils.h"
+#include "crypto/crypto_utils.h"
 #include <array>
 #include "sp_enclave_t.h"
 #include <mbusafecrt.h>
@@ -16,7 +19,7 @@ void print_256_msg(const char *header, const uint32_t *data) {
 }
 
 
-sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_xstatus_t *att_status) {
+sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_error_t &att_error) {
 #ifdef VERBOSE
     char buffer[256];
     sprintf_s(buffer, 256, "msg0_extended_epid_group_id=%08x", msg0_extended_epid_group_id);
@@ -26,13 +29,13 @@ sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation
     if (msg0_extended_epid_group_id == 0) {
         return SGX_SUCCESS;
     } else {
-        att_status->error = MSG0_ExtendedEpidGroupIdIsNotZero;
+        att_error = MSG0_ExtendedEpidGroupIdIsNotZero;
         return SGX_ERROR_UNEXPECTED;
     }
 }
 
 
-sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_xstatus_t *att_status) {
+sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_error_t &att_error) {
     /* All components of msg1 are in little-endian byte order. */
 
     sgx_status_t status;
@@ -43,7 +46,7 @@ sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, a
 
     check_sgx_status(status);
     if (!valid) {
-        att_status->error = MSG1_ClientEnclaveSessionKeyIsInvalid;
+        att_error = MSG1_ClientEnclaveSessionKeyIsInvalid;
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -66,7 +69,7 @@ sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, a
 
 sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_ec256_private_t &service_provider_privkey,
                                 const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
-                                const vector<uint8_t> &sigrl, sgx_ra_msg2_t &msg2) {
+                                const char *sigrl, uint32_t sigrl_size, sgx_ra_msg2_t &msg2) {
     sgx_status_t status;
 
     /* Gb */
@@ -91,26 +94,25 @@ sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_ec256_private_t &
     check_sgx_status(status);
 
     /* SigRL */
-    msg2.sig_rl_size = sigrl.size();
-//    memcpy(&msg2.sig_rl, sigrl.data(), sigrl.size());
+    msg2.sig_rl_size = sigrl_size;
+    memcpy_s(msg2.sig_rl, sigrl_size, sigrl, sigrl_size);
 
     return status;
 }
 
-sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_xstatus_t *att_status) {
+sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_error_t &att_error) {
     sgx_status_t status;
-    sgx_quote_t &quote = *(sgx_quote_t *) msg3.quote;
+    const sgx_quote_t &quote = *(sgx_quote_t *) msg3.quote;
 
     /* Verify that Ga in msg3 matches Ga in msg1 */
     if (memcmp(&secret.public_a, &msg3.g_a, sizeof(sgx_ec256_public_t)) != 0) {
-        att_status->error = MSG3_ClientEnclaveSessingKeyMismatch;
+        att_error = MSG3_ClientEnclaveSessingKeyMismatch;
         return SGX_ERROR_UNEXPECTED;
     }
 
-
     /* Verify that the EPID group ID in the quote matches the one from msg1 */
     if (memcmp(secret.client_gid, quote.epid_group_id, sizeof(sgx_epid_group_id_t)) != 0) {
-        att_status->error = MSG3_EpidGroupIdMismatch;
+        att_error = MSG3_EpidGroupIdMismatch;
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -152,9 +154,9 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
     vector<uint8_t> verification(begin(digest), end(digest));
     verification.resize(SGX_REPORT_DATA_SIZE, 0);
 
-    uint8_t *report_data = quote.report_body.report_data.d;
+    const uint8_t *report_data = quote.report_body.report_data.d;
     if (memcmp(verification.data(), report_data, SGX_REPORT_DATA_SIZE) != 0) {
-        att_status->error = MSG3_InvalidReportData;
+        att_error = MSG3_InvalidReportData;
         return SGX_ERROR_UNEXPECTED;
     }
 

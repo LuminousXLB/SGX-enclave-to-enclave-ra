@@ -6,7 +6,7 @@
 #include <cstring>
 #include <zconf.h>
 #include "socket_log.h"
-#include "msgio.h"
+#include <cstdlib>
 #include "common.h"
 #include "hexutil.h"
 
@@ -134,7 +134,7 @@ void fsend_msg_partial(FILE *fp, void *src, size_t sz) {
     if (sz) print_hexstring(fp, src, sz);
 }
 
-void fsend_msg(FILE *fp, void *src, size_t sz) {
+void fsend_msg(FILE *fp, const void *src, size_t sz) {
     if (sz) print_hexstring(fp, src, sz);
     fprintf(fp, "\n");
     fflush(fp);

@@ -1,3 +1,6 @@
+add_subdirectory(encoding/cppcodec)
+include_directories(encoding/cppcodec)
+
 add_library(msgio msgio.h msgio.cpp socket_log.h socket_log.cpp)
 add_library(fileio fileio.h fileio.c)
 

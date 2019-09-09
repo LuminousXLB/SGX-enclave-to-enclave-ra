@@ -1,5 +1,4 @@
 #include <string.h>
-#include <hexutil.h>
 #include <base64.h>
 #include "ias.h"
 #include "common.h"
@@ -10,7 +9,7 @@ extern char verbose;
 
 using namespace json;
 
-ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t gid, string &sig_rl) {
+ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_t &gid, string &sig_rl) {
     IAS_Request *req = nullptr;
 
     try {
@@ -51,13 +50,45 @@ ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_
     return ret;
 }
 
-ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote,
-                                   string &content, vector<string> &messages) {
+ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote, string &response) {
     char *b64quote = base64_encode((char *) quote.data(), quote.size());
     if (b64quote == NULL) {
         eprintf("Could not base64 encode the quote\n");
         return 0;
     }
+
+    IAS_Request *req = nullptr;
+    try {
+        req = new IAS_Request(ias, (uint16_t) version);
+    } catch (...) {
+        eprintf("Exception while creating IAS request object\n");
+        if (!req) delete req;
+        return 0;
+    }
+
+    map<string, string> payload;
+    payload.insert(make_pair("isvEnclaveQuote", b64quote));
+    int exitcode;
+
+    string content;
+
+    vector<string> messages;
+    req->report(payload, content, messages, response, exitcode);
+
+    //#define WGET_NO_ERROR       0
+    //#define WGET_SERVER_ERROR   8
+    //#define WGET_AUTH_ERROR     6
+
+    if (exitcode == 6) {
+        return IAS_UNAUTHORIZED;
+    } else {
+        return IAS_OK;
+    }
+}
+
+#if 0
+ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote,
+                                   string &content, vector<string> &messages) {
 
     if (verbose) {
         edividerWithText("isv_enclave Quote (base64) ==> Send to IAS");
@@ -66,19 +97,6 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
         eprintf("\n");
         edivider();
     }
-
-    IAS_Request *req = nullptr;
-
-    try {
-        req = new IAS_Request(ias, (uint16_t) version);
-    }
-    catch (...) {
-        eprintf("Exception while creating IAS request object\n");
-        if (!req) delete req;
-        return 0;
-    }
-
-
     map<string, string> payload;
     payload.insert(make_pair("isvEnclaveQuote", b64quote));
 
@@ -150,3 +168,4 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
     return status;
 }
 
+#endif

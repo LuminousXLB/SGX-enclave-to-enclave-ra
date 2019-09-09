@@ -28,62 +28,59 @@ static const sgx_ec256_private_t service_private_key = {
 
 ra_secret_t secret;
 
-sgx_status_t ecall_do_attestation(ra_msg01_t msg01, ra_msg4_t *msg4, attestation_xstatus_t *att_status) {
 
-    if (!msg4 || !att_status) {
+sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_type,
+                                 ra_msg01_t msg01, const char *sigrl, uint32_t sigrl_size,
+                                 sgx_ra_msg2_t *msg2, uint32_t msg2_size, attestation_error_t *att_error) {
+    if (!msg2 || !att_error) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+
+    if (msg2_size != sizeof(sgx_ra_msg2_t) + sigrl_size) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
 
     sgx_status_t status;
-    att_status->trust = NotTrusted;
-    att_status->error = NoErrorInformation;
-
-
-#ifdef VERBOSE
-    char buffer[256];
-    sprintf_s(buffer, 256, "msg0_extended_epid_group_id=%08x", msg01.msg0_extended_epid_group_id);
-    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, buffer);
-#endif
+    *att_error = NoErrorInformation;
 
     /* proc msg0 */
-    status = private_proc_msg0(msg01.msg0_extended_epid_group_id, att_status);
+    status = private_proc_msg0(msg01.msg0_extended_epid_group_id, *att_error);
     check_sgx_status(status);
 
     /* proc msg1 */
-    status = private_proc_msg1(secret, msg01.msg1, att_status);
+    status = private_proc_msg1(secret, msg01.msg1, *att_error);
     check_sgx_status(status);
-
-    /* [ocall] get SigRL, spid, quote_type */
-    sgx_spid_t spid;
-    sgx_quote_sign_type_t quote_type;
-    uint32_t sigrl_size;
-    ocall_pre_get_sigrl(secret.client_gid, &spid, &quote_type, &sigrl_size);
-
-    vector<uint8_t> sigrl(sigrl_size, 0);
-    if (sigrl_size > 0) {
-        ocall_get_sigrl(sigrl.size(), &sigrl[0]);
-    }
 
     /* build msg2 */
-    sgx_ra_msg2_t msg2;
-    status = private_build_msg2(secret, service_private_key, spid, quote_type, sigrl, msg2);
+    status = private_build_msg2(secret, service_private_key, spid, quote_type, sigrl, sigrl_size, *msg2);
     check_sgx_status(status);
 
-    /* send msg2 & recv msg3 */
-    uint32_t msg3_length;
-    ocall_pre_get_msg3(msg2, &msg3_length);
-
-    vector<uint8_t> msg3_buffer(msg3_length, 0);
-    ocall_get_msg3(msg3_buffer.size(), &msg3_buffer[0]);
-
-    /* proc msg3 */
-    status = private_proc_msg3(secret, *reinterpret_cast<const sgx_ra_msg3_t *> (msg3_buffer.data()), att_status);
-    check_sgx_status(status);
-
-    /* get attestation report */
-    /* build msg4 */
-    /* send msg4 */
-
-    return SGX_SUCCESS;
+    return status;
 }
 
+
+sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, const char *attestation_report,
+                                ra_msg4_t *msg4, attestation_error_t *att_error) {
+    if (!msg3 || !attestation_report || !msg4 || !att_error) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+
+    auto *quote = (sgx_quote_t *) msg3->quote;
+    if (msg3_size != sizeof(sgx_ra_msg3_t) + sizeof(sgx_quote_t) + quote->signature_len) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+
+    sgx_status_t status;
+    *att_error = NoErrorInformation;
+
+    /* proc msg3 */
+    status = private_proc_msg3(secret, *msg3, *att_error);
+    check_sgx_status(status);
+
+    /* parse attestation_report */
+    /* verify attestation_report */
+
+    /* send msg4 */
+
+    return status;
+}

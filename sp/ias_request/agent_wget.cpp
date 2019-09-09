@@ -44,11 +44,29 @@ extern int debug, verbose;
 string AgentWget::name = "wget";
 
 int AgentWget::request(string const &url, string const &post, Response &response) {
-    HttpResponseParser parser;
+    string sresponse;
+    int exitcode = 0;
+
+    int rv = request(url, post, sresponse, exitcode);
+
+    if (exitcode == WGET_AUTH_ERROR) {
+        response.statusCode = IAS_UNAUTHORIZED;
+    } else if (exitcode == WGET_NO_ERROR || exitcode == WGET_SERVER_ERROR) {
+        HttpResponseParser parser;
+        HttpResponseParser::ParseResult result;
+
+        result = parser.parse(response, sresponse.c_str(), sresponse.c_str() + sresponse.length());
+        rv = (result == HttpResponseParser::ParsingCompleted);
+    }
+
+    return rv;
+}
+
+
+int AgentWget::request(string const &url, string const &post, string &sresponse, int &exitcode) {
     int pipefd[2];
     pid_t pid;
     string arg;
-    string sresponse;
     int status;
     char buffer[CHUNK_SZ];
     size_t bread;
@@ -232,20 +250,16 @@ int AgentWget::request(string const &url, string const &post, Response &response
     }
 
     unlink(tmpfile);
-    if (!rv) return 0;
+    if (!rv) {
+        return 0;
+    }
 
     if (WIFEXITED(status)) {
-        int exitcode = WEXITSTATUS(status);
-
-        if (exitcode == WGET_AUTH_ERROR) {
-            response.statusCode = IAS_UNAUTHORIZED;
-        } else if (exitcode == WGET_NO_ERROR || exitcode == WGET_SERVER_ERROR) {
-            HttpResponseParser::ParseResult result;
-
-            result = parser.parse(response, sresponse.c_str(), sresponse.c_str() + sresponse.length());
-            rv = (result == HttpResponseParser::ParsingCompleted);
-        }
-    } else rv = 0;
+        exitcode = WEXITSTATUS(status);
+        rv = 1;
+    } else {
+        rv = 0;
+    }
 
     return rv;
 }

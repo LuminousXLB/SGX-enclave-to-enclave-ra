@@ -23,7 +23,6 @@ in the License.
 #include "agent.h"
 #include "agent_wget.h"
 #include "ias_request.h"
-#include "httpparser/response.h"
 
 #include "../../crypto/crypto.h"
 #include "../../utils/common.h"
@@ -36,6 +35,7 @@ using namespace httpparser;
 
 #include <string>
 #include <exception>
+#include <httpresponseparser.h>
 
 extern "C"
 {
@@ -338,24 +338,203 @@ ias_error_t IAS_Request::sigrl(uint32_t gid, string &sigrl) {
     return response.statusCode;
 }
 
-ias_error_t IAS_Request::report(map<string, string> &payload, string &content,
-                                vector<string> &messages) {
+ias_error_t IAS_Request::verify_certificate(const Response &response) {
+    /*
+     * The response body has the attestation report. The headers have
+     * a signature of the report, and the public signing certificate.
+     * We need to:
+     *
+     * 1) Verify the certificate chain, to ensure it's issued by the
+     *    Intel CA (passed with the -A option).
+     *
+     * 2) Extract the public key from the signing cert, and verify
+     *    the signature.
+     */
+
+    size_t cstart, cend;
+    X509 *sign_cert;
+    size_t sigsz;
+    int rv;
+    size_t count, i;
+    X509 **certar;
+    STACK_OF(X509) *stack;
+    unsigned char *sig = nullptr;
+    EVP_PKEY *pkey = nullptr;
+    string certchain;
+    vector<X509 *> certvec;
+    ias_error_t status = IAS_OK;
+    string sigstr;
+    string content = response.content_string();
+
+    // Get the certificate chain from the headers
+
+    certchain = response.headers_as_string("X-IASReport-Signing-Certificate");
+    if (certchain == "") {
+        eprintf("Header X-IASReport-Signing-Certificate not found\n");
+        return IAS_BAD_CERTIFICATE;
+    }
+
+    // URL decode
+    try {
+        certchain = url_decode(certchain);
+    }
+    catch (...) {
+        eprintf("invalid URL encoding in header X-IASReport-Signing-Certificate\n");
+        return IAS_BAD_CERTIFICATE;
+    }
+
+    // Build the cert stack. Find the positions in the string where we
+    // have a BEGIN block.
+
+    cstart = cend = 0;
+    while (cend != string::npos) {
+        X509 *cert;
+        size_t len;
+
+        cend = certchain.find("-----BEGIN", cstart + 1);
+        len = ((cend == string::npos) ? certchain.length() : cend) - cstart;
+
+        if (verbose) {
+            edividerWithText("Certficate");
+            eputs(certchain.substr(cstart, len).c_str());
+            eprintf("\n");
+            edivider();
+        }
+
+        if (!cert_load(&cert, certchain.substr(cstart, len).c_str())) {
+            crypto_perror("cert_load");
+            return IAS_BAD_CERTIFICATE;
+        }
+
+        certvec.push_back(cert);
+        cstart = cend;
+    }
+
+    count = certvec.size();
+    if (debug)
+        eprintf("+++ Found %lu certificates in chain\n", count);
+
+    certar = (X509 **) malloc(sizeof(X509 *) * (count + 1));
+    if (certar == 0) {
+        perror("malloc");
+        return IAS_INTERNAL_ERROR;
+    }
+    for (i = 0; i < count; ++i)
+        certar[i] = certvec[i];
+    certar[count] = nullptr;
+
+    // Create a STACK_OF(X509) stack from our certs
+
+    stack = cert_stack_build(certar);
+    if (stack == nullptr) {
+        crypto_perror("cert_stack_build");
+        status = IAS_INTERNAL_ERROR;
+        goto cleanup;
+    }
+
+    // Now verify the signing certificate
+
+    rv = cert_verify(this->conn()->cert_store(), stack);
+
+    if (!rv) {
+        crypto_perror("cert_stack_build");
+        eprintf("certificate verification failure\n");
+        status = IAS_BAD_CERTIFICATE;
+        goto cleanup;
+    } else {
+        if (debug)
+            eprintf("+++ certificate chain verified\n", rv);
+    }
+
+    // The signing cert is valid, so extract and verify the signature
+
+    sigstr = response.headers_as_string("X-IASReport-Signature");
+    if (sigstr == "") {
+        eprintf("Header X-IASReport-Signature not found\n");
+        status = IAS_BAD_SIGNATURE;
+        goto cleanup;
+    }
+
+    sig = (unsigned char *) base64_decode(sigstr.c_str(), &sigsz);
+    if (sig == nullptr) {
+        eprintf("Could not decode signature\n");
+        status = IAS_BAD_SIGNATURE;
+        goto cleanup;
+    }
+
+    if (verbose) {
+        edividerWithText("Report Signature");
+        print_hexstring(stderr, sig, sigsz);
+        if (fplog != NULL)
+            print_hexstring(fplog, sig, sigsz);
+        eprintf("\n");
+        edivider();
+    }
+
+    sign_cert = certvec[0]; /* The first cert in the list */
+
+    /*
+     * The report body is SHA256 signed with the private key of the
+     * signing cert.  Extract the public key from the certificate and
+     * verify the signature.
+     */
+
+    if (debug)
+        eprintf("+++ Extracting public key from signing cert\n");
+    pkey = X509_get_pubkey(sign_cert);
+    if (pkey == NULL) {
+        eprintf("Could not extract public key from certificate\n");
+        status = IAS_INTERNAL_ERROR;
+        goto cleanup;
+    }
+
+
+    if (debug) {
+        eprintf("+++ Verifying signature over report body\n");
+        edividerWithText("Report");
+        eputs(content.c_str());
+        eprintf("\n");
+        edivider();
+        eprintf("Content-length: %lu bytes\n", response.content_string().length());
+        edivider();
+    }
+
+    if (!sha256_verify((const unsigned char *) content.c_str(), content.length(), sig, sigsz, pkey, &rv)) {
+
+        crypto_perror("sha256_verify");
+        eprintf("Could not validate signature\n");
+        status = IAS_BAD_SIGNATURE;
+    } else {
+        if (rv) {
+            if (verbose)
+                eprintf("+++ Signature verified\n");
+            status = IAS_OK;
+        } else {
+            eprintf("Invalid report signature\n");
+            status = IAS_BAD_SIGNATURE;
+        }
+    }
+
+    cleanup:
+    if (pkey != nullptr)
+        EVP_PKEY_free(pkey);
+    cert_stack_free(stack);
+    free(certar);
+    for (i = 0; i < count; ++i)
+        X509_free(certvec[i]);
+    free(sig);
+
+    return status;
+}
+
+ias_error_t IAS_Request::report(map<string, string> &payload, string &content, vector<string> &messages,
+                                string &sresponse, int &exitcode) {
     Response response;
     map<string, string>::iterator imap;
     string url = r_conn->base_url();
-    string certchain;
     string body = "{\n";
-    size_t cstart, cend, count, i;
-    vector<X509 *> certvec;
-    X509 **certar;
-    X509 *sign_cert;
-    STACK_OF(X509) *stack;
-    string sigstr, header;
-    size_t sigsz;
+    string header;
     ias_error_t status;
-    int rv;
-    unsigned char *sig = nullptr;
-    EVP_PKEY *pkey = nullptr;
     Agent *agent = r_conn->new_agent();
 
     if (agent == nullptr) {
@@ -390,7 +569,25 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content,
         edivider();
     }
 
-    if (agent->request(url, body, response)) {
+    int rv = agent->request(url, body, sresponse, exitcode);
+    if (rv) {
+        //#define WGET_NO_ERROR       0
+        //#define WGET_SERVER_ERROR   8
+        //#define WGET_AUTH_ERROR     6
+
+        if (exitcode == 6) {
+            response.statusCode = IAS_UNAUTHORIZED;
+        } else if (exitcode == 0 || exitcode == 8) {
+            HttpResponseParser parser;
+            HttpResponseParser::ParseResult result;
+
+            result = parser.parse(response, sresponse.c_str(), sresponse.c_str() + sresponse.length());
+            rv = (result == HttpResponseParser::ParsingCompleted);
+        }
+    }
+
+//    if (agent->request(url, body, response)) {
+    if (rv) {
         if (verbose) {
             edividerWithText("IAS report HTTP Response");
             eputs(response.inspect().c_str());
@@ -406,173 +603,15 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content,
         delete agent;
         return response.statusCode;
     }
-
     /*
-     * The response body has the attestation report. The headers have
-     * a signature of the report, and the public signing certificate.
-     * We need to:
-     *
-     * 1) Verify the certificate chain, to ensure it's issued by the
-     *    Intel CA (passed with the -A option).
-     *
-     * 2) Extract the public key from the signing cert, and verify
-     *    the signature.
+     * Check IAS Certicicate
      */
 
-    // Get the certificate chain from the headers
-
-    certchain = response.headers_as_string("X-IASReport-Signing-Certificate");
-    if (certchain == "") {
-        eprintf("Header X-IASReport-Signing-Certificate not found\n");
-        delete agent;
-        return IAS_BAD_CERTIFICATE;
-    }
-
-    // URL decode
-    try {
-        certchain = url_decode(certchain);
-    }
-    catch (...) {
-        eprintf("invalid URL encoding in header X-IASReport-Signing-Certificate\n");
-        delete agent;
-        return IAS_BAD_CERTIFICATE;
-    }
-
-    // Build the cert stack. Find the positions in the string where we
-    // have a BEGIN block.
-
-    cstart = cend = 0;
-    while (cend != string::npos) {
-        X509 *cert;
-        size_t len;
-
-        cend = certchain.find("-----BEGIN", cstart + 1);
-        len = ((cend == string::npos) ? certchain.length() : cend) - cstart;
-
-        if (verbose) {
-            edividerWithText("Certficate");
-            eputs(certchain.substr(cstart, len).c_str());
-            eprintf("\n");
-            edivider();
-        }
-
-        if (!cert_load(&cert, certchain.substr(cstart, len).c_str())) {
-            crypto_perror("cert_load");
-            delete agent;
-            return IAS_BAD_CERTIFICATE;
-        }
-
-        certvec.push_back(cert);
-        cstart = cend;
-    }
-
-    count = certvec.size();
-    if (debug)
-        eprintf("+++ Found %lu certificates in chain\n", count);
-
-    certar = (X509 **) malloc(sizeof(X509 *) * (count + 1));
-    if (certar == 0) {
-        perror("malloc");
-        delete agent;
-        return IAS_INTERNAL_ERROR;
-    }
-    for (i = 0; i < count; ++i)
-        certar[i] = certvec[i];
-    certar[count] = NULL;
-
-    // Create a STACK_OF(X509) stack from our certs
-
-    stack = cert_stack_build(certar);
-    if (stack == NULL) {
-        crypto_perror("cert_stack_build");
-        status = IAS_INTERNAL_ERROR;
+    status = verify_certificate(response);
+    if (status != IAS_OK) {
         goto cleanup;
     }
-
-    // Now verify the signing certificate
-
-    rv = cert_verify(this->conn()->cert_store(), stack);
-
-    if (!rv) {
-        crypto_perror("cert_stack_build");
-        eprintf("certificate verification failure\n");
-        status = IAS_BAD_CERTIFICATE;
-        goto cleanup;
-    } else {
-        if (debug)
-            eprintf("+++ certificate chain verified\n", rv);
-    }
-
-    // The signing cert is valid, so extract and verify the signature
-
-    sigstr = response.headers_as_string("X-IASReport-Signature");
-    if (sigstr == "") {
-        eprintf("Header X-IASReport-Signature not found\n");
-        status = IAS_BAD_SIGNATURE;
-        goto cleanup;
-    }
-
-    sig = (unsigned char *) base64_decode(sigstr.c_str(), &sigsz);
-    if (sig == NULL) {
-        eprintf("Could not decode signature\n");
-        status = IAS_BAD_SIGNATURE;
-        goto cleanup;
-    }
-
-    if (verbose) {
-        edividerWithText("Report Signature");
-        print_hexstring(stderr, sig, sigsz);
-        if (fplog != NULL)
-            print_hexstring(fplog, sig, sigsz);
-        eprintf("\n");
-        edivider();
-    }
-
-    sign_cert = certvec[0]; /* The first cert in the list */
-
-    /*
-     * The report body is SHA256 signed with the private key of the
-     * signing cert.  Extract the public key from the certificate and
-     * verify the signature.
-     */
-
-    if (debug)
-        eprintf("+++ Extracting public key from signing cert\n");
-    pkey = X509_get_pubkey(sign_cert);
-    if (pkey == NULL) {
-        eprintf("Could not extract public key from certificate\n");
-        status = IAS_INTERNAL_ERROR;
-        goto cleanup;
-    }
-
     content = response.content_string();
-
-    if (debug) {
-        eprintf("+++ Verifying signature over report body\n");
-        edividerWithText("Report");
-        eputs(content.c_str());
-        eprintf("\n");
-        edivider();
-        eprintf("Content-length: %lu bytes\n", response.content_string().length());
-        edivider();
-    }
-
-    if (!sha256_verify((const unsigned char *) content.c_str(),
-                       content.length(), sig, sigsz, pkey, &rv)) {
-
-        crypto_perror("sha256_verify");
-        eprintf("Could not validate signature\n");
-        status = IAS_BAD_SIGNATURE;
-    } else {
-        if (rv) {
-            if (verbose)
-                eprintf("+++ Signature verified\n");
-            status = IAS_OK;
-        } else {
-            eprintf("Invalid report signature\n");
-            status = IAS_BAD_SIGNATURE;
-        }
-    }
 
     /*
      * Check for advisory headers
@@ -586,18 +625,13 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content,
     if (header.length())
         messages.push_back(header);
 
+
     cleanup:
-    if (pkey != NULL)
-        EVP_PKEY_free(pkey);
-    cert_stack_free(stack);
-    free(certar);
-    for (i = 0; i < count; ++i)
-        X509_free(certvec[i]);
-    free(sig);
     delete agent;
 
     return status;
 }
+
 
 // A simple URL decoder
 
@@ -610,7 +644,7 @@ static string url_decode(string str) {
         if (str[i] == '+')
             decoded += ' ';
         else if (str[i] == '%') {
-            char *e = NULL;
+            char *e = nullptr;
             unsigned long int v;
 
             // Have a % but run out of characters in the string

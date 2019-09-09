@@ -5,7 +5,7 @@ set(EDL_SEARCH_PATHS sp_enclave)
 
 # build enclave library
 add_enclave_library(sp_enclave
-        SRCS sp_enclave/sp_enclave.cpp sp_enclave/crypto_utils.h sp_enclave/crypto_utils.cpp sp_enclave/sp_routines.cpp ../protocol/error.h
+        SRCS sp_enclave/sp_enclave.cpp sp_enclave/crypto/crypto_utils.h sp_enclave/crypto/crypto_utils.cpp sp_enclave/sp_routines.cpp ../protocol/error.h
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
@@ -24,7 +24,7 @@ enclave_sign(sp_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(sp_app
-        SRCS sp_app.cpp ias.h ias.cpp enclave_verify.h enclave_verify.c sp_ocalls.cpp tmp_config.h tmp_config.cpp
+        SRCS sp_app.cpp ias.h ias.cpp enclave_verify.h enclave_verify.c sp_ocalls.cpp tmp_config.h tmp_config.cpp loop_routine.h loop_routine.cpp
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 

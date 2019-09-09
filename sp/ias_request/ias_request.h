@@ -22,12 +22,14 @@ in the License.
 #include <inttypes.h>
 #include <openssl/x509.h>
 #include "agent.h"
+#include "httpparser/response.h"
 
 using namespace std;
 
 #include <string>
 #include <map>
 #include <vector>
+
 #define AGENT_WGET
 
 #ifndef IAS_API_DEF_VERSION
@@ -175,7 +177,10 @@ public:
 
     ias_error_t sigrl(uint32_t gid, string &sigrl);
 
-    ias_error_t report(map<string, string> &payload, string &content, vector<string> &messages);
+    ias_error_t verify_certificate(const httpparser::Response &response);
+
+    ias_error_t report(map<string, string> &payload, string &content, vector<string> &messages,
+                       string &sresponse, int &exitcode);
 };
 
 #endif
