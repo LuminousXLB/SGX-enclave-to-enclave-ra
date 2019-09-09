@@ -1,9 +1,18 @@
 #include "key_exchange_message.h"
+#include <vector>
+#include <cstring>
 
-int recv_msg01(ra_msg01_t *msg01) {
+using namespace std;
+
+int recv_msg01(vector<uint8_t> &msg01_buf) {
     fprintf(stderr, "Waiting for msg0||msg1\n");
 
-    int rv = msgio->read((void **) &msg01, nullptr);
+    int rv = msgio->read(msg01_buf);
+
+    const auto *msg01 = (const ra_msg01_t *) msg01_buf.data();
+
+    eprintf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+    hexdump(stderr, (uint8_t *) &msg01, sizeof(ra_msg01_t));
 
     if (rv == -1) {
         eprintf("system error reading msg0||msg1\n");
@@ -21,9 +30,9 @@ int recv_msg01(ra_msg01_t *msg01) {
 
     if (verbose) {
         edividerWithText("Msg1 Details (from Client)");
-        eprintf("msg1.g_a.gx = %s\n", hexstring(&msg01->msg1.g_a.gx, sizeof(msg01->msg1.g_a.gx)));
-        eprintf("msg1.g_a.gy = %s\n", hexstring(&msg01->msg1.g_a.gy, sizeof(msg01->msg1.g_a.gy)));
-        eprintf("msg1.gid    = %s\n", hexstring(&msg01->msg1.gid, sizeof(msg01->msg1.gid)));
+        eprintf("msg1.g_a.gx = %s\n", hexstring(&msg01->msg1.g_a.gx, SGX_ECP256_KEY_SIZE));
+        eprintf("msg1.g_a.gy = %s\n", hexstring(&msg01->msg1.g_a.gy, SGX_ECP256_KEY_SIZE));
+        eprintf("msg1.gid    = %s\n", hexstring(&msg01->msg1.gid, sizeof(sgx_epid_group_id_t)));
         edivider();
     }
 

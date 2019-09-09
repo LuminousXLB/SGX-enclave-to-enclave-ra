@@ -62,28 +62,34 @@ config_t config;
 
 
 void loop_routine() {
-    ra_msg01_t msg01;
-    ra_msg4_t msg4;
     sgx_status_t status;
+    sgx_status_t sgx_status;
+    attestation_xstatus_t att_status;
 
     /* Read message 0 and 1 */
-    recv_msg01(&msg01);
+    vector<uint8_t> msg01_buffer;
+    recv_msg01(msg01_buffer);
 
-    sgx_status_t sgx_status;
-    attestation_status_t att_status;
+    eprintf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+    hexdump(stderr, msg01_buffer.data(), msg01_buffer.size());
 
-    status = ecall_do_attestation(global_eid, &sgx_status, msg01, &msg4, &att_status);
+    const auto *msg01 = (const ra_msg01_t *) msg01_buffer.data();
+    ra_msg4_t msg4;
+    status = ecall_do_attestation(global_eid, &sgx_status, *msg01, &msg4, &att_status);
+    eprintf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+
+
+    if (att_status.error != NoErrorInformation) {
+//        TODO: print error information
+        eprintf("Attestation Error: %d\n", att_status.error);
+    }
+
     if (status != SGX_SUCCESS) {
         goto disconnect;
     }
 
     if (sgx_status != SGX_SUCCESS) {
         goto disconnect;
-    }
-
-    if (att_status.error != attestation_status_t::NoErrorInformation) {
-//        TODO: print error information
-        printf("Attestation Error: %d", att_status.error);
     }
 
 //    TODO: Send message4
@@ -105,7 +111,7 @@ void loop_routine() {
     }
 
     if (sgx_status != SGX_SUCCESS) {
-        print_error_message(status);
+        print_error_message(sgx_status);
         exit(EXIT_FAILURE);
     }
 

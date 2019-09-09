@@ -100,8 +100,8 @@ private:
 
     typedef char subkey_t[IAS_SUBSCRIPTION_KEY_SIZE];
 
-    subkey_t subscription_key_enc[SubscriptionKeyID::Last];
-    subkey_t subscription_key_xor[SubscriptionKeyID::Last];
+    subkey_t subscription_key_enc[SubscriptionKeyID::Last]{};
+    subkey_t subscription_key_xor[SubscriptionKeyID::Last]{};
 
     string c_ca_file;
     string c_proxy_server;

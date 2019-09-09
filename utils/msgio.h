@@ -25,42 +25,51 @@ in the License.
 #include <sys/types.h>
 #include <sgx_urts.h>
 #include <stdio.h>
+
 #ifdef _WIN32
 #include <WS2tcpip.h>
 #endif
+
 #include <string>
+#include <vector>
 using namespace std;
 
-#define STRUCT_INCLUDES_PSIZE	0
-#define STRUCT_OMITS_PSIZE		1
+#define STRUCT_INCLUDES_PSIZE    0
+#define STRUCT_OMITS_PSIZE        1
 
 /* A 1MB buffer should be sufficient for demo purposes */
-#define MSGIO_BUFFER_SZ	1024*1024
+#define MSGIO_BUFFER_SZ    1024*1024
 
-#define DEFAULT_PORT	"7777"		// A C string for getaddrinfo()
+#define DEFAULT_PORT    "7777"        // A C string for getaddrinfo()
 
 #ifndef _WIN32
 typedef int SOCKET;
 #endif
 
 class MsgIO {
-	string wbuffer, rbuffer;
-	char lbuffer[MSGIO_BUFFER_SZ];
-	bool use_stdio;
-	SOCKET ls, s;
+    string wbuffer, rbuffer;
+    char lbuffer[MSGIO_BUFFER_SZ];
+    bool use_stdio;
+    SOCKET ls, s;
 
 public:
-	MsgIO();
-	MsgIO(const char *server, const char *port);
-	~MsgIO();
+    MsgIO();
 
-	int server_loop();
-	void disconnect();
+    MsgIO(const char *server, const char *port);
 
-	int read(void **dest, size_t *sz);
+    ~MsgIO();
 
-	void send_partial(void *buf, size_t f_size);
-	void send(void *buf, size_t f_size);
+    int server_loop();
+
+    void disconnect();
+
+    int read(void **dest, size_t *sz);
+
+    int read(vector<uint8_t> &buffer);
+
+    void send_partial(void *buf, size_t f_size);
+
+    void send(void *buf, size_t f_size);
 };
 
 #ifdef __cplusplus

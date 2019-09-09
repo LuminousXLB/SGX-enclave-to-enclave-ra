@@ -3,6 +3,8 @@
 #include "sp_routines.h"
 #include "sp_enclave_t.h"
 #include <vector>
+#include <tlibc/mbusafecrt.h>
+#include "common.h"
 
 using namespace std;
 
@@ -15,25 +17,40 @@ using namespace std;
 //    sgx_epid_group_id_t client_gid;
 //} ra_secret_t;
 
-static const unsigned char def_service_private_key[32] = {
-        0x90, 0xe7, 0x6c, 0xbb, 0x2d, 0x52, 0xa1, 0xce,
-        0x3b, 0x66, 0xde, 0x11, 0x43, 0x9c, 0x87, 0xec,
-        0x1f, 0x86, 0x6a, 0x3b, 0x65, 0xb6, 0xae, 0xea,
-        0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
+static const sgx_ec256_private_t service_private_key = {
+        {
+                0x90, 0xe7, 0x6c, 0xbb, 0x2d, 0x52, 0xa1, 0xce,
+                0x3b, 0x66, 0xde, 0x11, 0x43, 0x9c, 0x87, 0xec,
+                0x1f, 0x86, 0x6a, 0x3b, 0x65, 0xb6, 0xae, 0xea,
+                0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
+        }
 };
+//static const unsigned char def_service_private_key[32] = {
+//        0x90, 0xe7, 0x6c, 0xbb, 0x2d, 0x52, 0xa1, 0xce,
+//        0x3b, 0x66, 0xde, 0x11, 0x43, 0x9c, 0x87, 0xec,
+//        0x1f, 0x86, 0x6a, 0x3b, 0x65, 0xb6, 0xae, 0xea,
+//        0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
+//};
 
 ra_secret_t secret;
 
 sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
-                                  ra_msg4_t *msg4, attestation_status_t *att_status) {
+                                  ra_msg4_t *msg4, attestation_xstatus_t *att_status) {
 
     if (!msg4 || !att_status) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
 
     sgx_status_t status;
-    att_status->trust = attestation_status_t::NotTrusted;
-    att_status->error = attestation_status_t::NoErrorInformation;
+    att_status->trust = NotTrusted;
+    att_status->error = NoErrorInformation;
+
+
+#ifdef VERBOSE
+    char buffer[256];
+    sprintf_s(buffer, 256, "msg0_extended_epid_group_id=%08x", msg01.msg0_extended_epid_group_id);
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, buffer);
+#endif
 
     /* proc msg0 */
     status = private_proc_msg0(msg01.msg0_extended_epid_group_id, att_status);
@@ -50,18 +67,20 @@ sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
     ocall_pre_get_sigrl(secret.client_gid, &spid, &quote_type, &sigrl_size);
 
     vector<uint8_t> sigrl(sigrl_size, 0);
-    ocall_get_sigrl(sigrl.size(), &sigrl[0]);
+    if (sigrl_size > 0) {
+        ocall_get_sigrl(sigrl.size(), &sigrl[0]);
+    }
 
     /* build msg2 */
     sgx_ra_msg2_t msg2;
-    status = private_build_msg2(secret, spid, quote_type, sigrl, msg2);
+    status = private_build_msg2(secret, service_private_key, spid, quote_type, sigrl, msg2);
     check_sgx_status(status);
 
     /* send msg2 & recv msg3 */
     uint32_t msg3_length;
     ocall_pre_get_msg3(msg2, &msg3_length);
-    vector<uint8_t> msg3_buffer(msg3_length, 0);
 
+    vector<uint8_t> msg3_buffer(msg3_length, 0);
     ocall_get_msg3(msg3_buffer.size(), &msg3_buffer[0]);
 
     /* proc msg3 */

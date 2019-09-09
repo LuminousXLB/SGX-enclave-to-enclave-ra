@@ -4,6 +4,7 @@
 #include <vector>
 #include <sgx_key_exchange.h>
 #include "protocol.h"
+#include "common.h"
 
 using namespace std;
 
@@ -18,13 +19,14 @@ typedef struct ra_secret_struct {
 
 #define check_sgx_status(status) if(status != SGX_SUCCESS) return status;
 
-sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_status_t *att_status);
+sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_xstatus_t *att_status);
 
-sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_status_t *att_status);
+sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_xstatus_t *att_status);
 
-sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
+sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_ec256_private_t &service_provider_privkey,
+                                const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
                                 const vector<uint8_t> &sigrl, sgx_ra_msg2_t &msg2);
 
-sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_status_t *att_status);
+sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_xstatus_t *att_status);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H

@@ -65,10 +65,10 @@ IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscrip
     c_flags = flags;
     c_server_port = IAS_PORT;
     c_proxy_mode = IAS_PROXY_AUTO;
-    c_agent = NULL;
+    c_agent = nullptr;
     c_agent_name = "";
     c_proxy_port = 80;
-    c_store = NULL;
+    c_store = nullptr;
     setSubscriptionKey(SubscriptionKeyID::Primary, priSubscriptionKey);
     setSubscriptionKey(SubscriptionKeyID::Secondary, secSubscriptionKey);
 }
@@ -78,8 +78,7 @@ IAS_Connection::~IAS_Connection() {
 
 int IAS_Connection::agent(const char *agent_name) {
 #ifdef AGENT_WGET
-    if (AgentWget::name == agent_name)
-    {
+    if (AgentWget::name == agent_name) {
         c_agent_name = agent_name;
         return 1;
     }
@@ -113,7 +112,7 @@ int IAS_Connection::proxy(const char *server, uint16_t port) {
 string IAS_Connection::proxy_url() {
     string proxy_url;
 
-    if (c_proxy_server == "")
+    if (c_proxy_server.empty())
         return "";
 
     proxy_url = "http://" + c_proxy_server;
@@ -131,7 +130,7 @@ int IAS_Connection::setSubscriptionKey(SubscriptionKeyID id, char *subscriptionK
     memset(subscription_key_enc[id], 0, sizeof(subscription_key_enc[id]));
     memset(subscription_key_xor[id], 0, sizeof(subscription_key_xor[id]));
 
-    if (subscriptionKeyPlainText == NULL || (strlen(subscriptionKeyPlainText) != IAS_SUBSCRIPTION_KEY_SIZE) ||
+    if (subscriptionKeyPlainText == nullptr || (strlen(subscriptionKeyPlainText) != IAS_SUBSCRIPTION_KEY_SIZE) ||
         (id == SubscriptionKeyID::Last)) {
         if (debug)
             eprintf("Error Setting subscriptionKey\n");
@@ -198,7 +197,7 @@ string IAS_Connection::base_url() {
 // Reuse the existing agent or get a new one.
 
 Agent *IAS_Connection::agent() {
-    if (c_agent == NULL)
+    if (c_agent == nullptr)
         return this->new_agent();
     return c_agent;
 }
@@ -206,23 +205,21 @@ Agent *IAS_Connection::agent() {
 // Get a new agent (and discard the old one if there was one)
 
 Agent *IAS_Connection::new_agent() {
-    Agent *newagent = NULL;
+    Agent *newagent = nullptr;
 
     // If we've requested a specific agent, use that one
 
     if (c_agent_name.length()) {
 #ifdef AGENT_WGET
-        if (c_agent_name == AgentWget::name)
-        {
-            try
-            {
-                newagent = (Agent *)new AgentWget(this);
+        if (c_agent_name == AgentWget::name) {
+            try {
+                newagent = (Agent *) new AgentWget(this);
             }
-            catch (...)
-            {
-                if (newagent != NULL)
+            catch (...) {
+                if (newagent != nullptr) {
                     delete newagent;
-                return NULL;
+                }
+                return nullptr;
             }
             return newagent;
         }
@@ -247,19 +244,17 @@ Agent *IAS_Connection::new_agent() {
         // Otherwise, take the first available using this hardcoded
         // order of preference.
 #ifdef AGENT_WGET
-        if (newagent == NULL)
-        {
+        if (newagent == nullptr) {
             if (debug)
                 eprintf("+++ Trying agent_wget\n");
-            try
-            {
-                newagent = (Agent *)new AgentWget(this);
+            try {
+                newagent = (Agent *) new AgentWget(this);
             }
-            catch (...)
-            {
-                if (newagent != NULL)
+            catch (...) {
+                if (newagent != NULL) {
                     delete newagent;
-                newagent = NULL;
+                }
+                newagent = nullptr;
             }
         }
 #endif
@@ -280,12 +275,12 @@ Agent *IAS_Connection::new_agent() {
 #endif
     }
 
-    if (newagent == NULL)
-        return NULL;
+    if (newagent == nullptr)
+        return nullptr;
 
     if (newagent->initialize() == 0) {
         delete newagent;
-        return NULL;
+        return nullptr;
     }
 
     c_agent = newagent;
@@ -306,7 +301,7 @@ ias_error_t IAS_Request::sigrl(uint32_t gid, string &sigrl) {
     string url = r_conn->base_url();
     Agent *agent = r_conn->new_agent();
 
-    if (agent == NULL) {
+    if (agent == nullptr) {
         eprintf("Could not allocate agent object");
         return IAS_QUERY_FAILED;
     }

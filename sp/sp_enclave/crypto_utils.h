@@ -1,6 +1,7 @@
 #ifndef SGX_ENCLAVE_TO_ENCLAVE_RA_CRYPTO_UTILS_H
 #define SGX_ENCLAVE_TO_ENCLAVE_RA_CRYPTO_UTILS_H
 
+#include "common.h"
 #include <sgx_tcrypto.h>
 #include <string>
 #include <cstring>
@@ -20,7 +21,7 @@ sgx_status_t key_generate(sgx_ec256_private_t &privkey, sgx_ec256_public_t &pubk
 sgx_status_t ecdh_shared_secret(sgx_ec256_private_t &privkey, sgx_ec256_public_t &pubkey,
                                 sgx_ec256_dh_shared_t &shared);
 
-sgx_status_t ecdsa(sgx_ec256_private_t &privkey, const uint8_t *data, uint32_t size, sgx_ec256_signature_t &signature);
+sgx_status_t ecdsa(const sgx_ec256_private_t &privkey, const uint8_t *data, uint32_t size, sgx_ec256_signature_t &signature);
 
 sgx_status_t derive_key(key_derivation_type_t type, const sgx_ec256_dh_shared_t &shared_secret,
                         sgx_cmac_128bit_key_t &derived_key);

@@ -19,7 +19,7 @@ using namespace std;
 extern MsgIO *msgio;
 
 
-int recv_msg01(ra_msg01_t *msg01);
+int recv_msg01(vector<uint8_t> &msg01_buf);
 
 //int recv_msg2(sgx_ra_msg2_t *msg2);
 int recv_msg3(sgx_ra_msg3_t *&msg3, uint32_t &msg3_length);

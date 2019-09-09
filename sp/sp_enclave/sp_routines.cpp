@@ -1,20 +1,38 @@
 #include "sp_routines.h"
 #include "crypto_utils.h"
 #include <array>
+#include "sp_enclave_t.h"
+#include <mbusafecrt.h>
 
 using namespace std;
 
-sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_status_t *att_status) {
+void print_256_msg(const char *header, const uint32_t *data) {
+    char buffer[256];
+
+    sprintf_s(buffer, 256, "%s = %08x %08x %08x %08x %08x %08x %08x %08x", header,
+              data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, buffer);
+}
+
+
+sgx_status_t private_proc_msg0(uint32_t msg0_extended_epid_group_id, attestation_xstatus_t *att_status) {
+#ifdef VERBOSE
+    char buffer[256];
+    sprintf_s(buffer, 256, "msg0_extended_epid_group_id=%08x", msg0_extended_epid_group_id);
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, buffer);
+#endif
+
     if (msg0_extended_epid_group_id == 0) {
         return SGX_SUCCESS;
     } else {
-        att_status->error = attestation_status_t::MSG0_ExtendedEpidGroupIdIsNotZero;
+        att_status->error = MSG0_ExtendedEpidGroupIdIsNotZero;
         return SGX_ERROR_UNEXPECTED;
     }
 }
 
 
-sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_status_t *att_status) {
+sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, attestation_xstatus_t *att_status) {
     /* All components of msg1 are in little-endian byte order. */
 
     sgx_status_t status;
@@ -25,7 +43,7 @@ sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, a
 
     check_sgx_status(status);
     if (!valid) {
-        att_status->error = attestation_status_t::MSG1_ClientEnclaveSessionKeyIsInvalid;
+        att_status->error = MSG1_ClientEnclaveSessionKeyIsInvalid;
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -46,7 +64,8 @@ sgx_status_t private_proc_msg1(ra_secret_t &secret, const sgx_ra_msg1_t &msg1, a
     return status;
 }
 
-sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
+sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_ec256_private_t &service_provider_privkey,
+                                const sgx_spid_t &spid, const sgx_quote_sign_type_t &quote_type,
                                 const vector<uint8_t> &sigrl, sgx_ra_msg2_t &msg2) {
     sgx_status_t status;
 
@@ -63,11 +82,78 @@ sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, con
     msg2.kdf_id = 1;
 
     /* SigSP */
-    sgx_ec256_signature_t sig_sp;
-    array<sgx_ec256_public_t, 2> Gb_Ga{secret.public_b, secret.public_b};
-    status = ecdsa(secret.private_b, (uint8_t *) &Gb_Ga[0], 2 * sizeof(sgx_ec256_public_t), sig_sp);
+    array<sgx_ec256_public_t, 2> Gb_Ga{secret.public_b, secret.public_a};
+    status = ecdsa(service_provider_privkey, (uint8_t *) &Gb_Ga[0], 2 * sizeof(sgx_ec256_public_t), msg2.sign_gb_ga);
     check_sgx_status(status);
 
+#ifdef VERBOSE
+
+    const sgx_ec256_public_t service_public_key = {
+            {
+                    0x72, 0x12, 0x8a, 0x7a, 0x17, 0x52, 0x6e, 0xbf,
+                    0x85, 0xd0, 0x3a, 0x62, 0x37, 0x30, 0xae, 0xad,
+                    0x3e, 0x3d, 0xaa, 0xee, 0x9c, 0x60, 0x73, 0x1d,
+                    0xb0, 0x5b, 0xe8, 0x62, 0x1c, 0x4b, 0xeb, 0x38
+            },
+            {
+                    0xd4, 0x81, 0x40, 0xd9, 0x50, 0xe2, 0x57, 0x7b,
+                    0x26, 0xee, 0xb7, 0x41, 0xe7, 0xc6, 0x14, 0xe2,
+                    0x24, 0xb7, 0xbd, 0xc9, 0x03, 0xf2, 0x9a, 0x28,
+                    0xa8, 0x3c, 0xc8, 0x10, 0x11, 0x14, 0x5e, 0x06
+            }
+
+    };
+
+
+    sgx_ec256_public_t sig_pub;
+    sgx_ecc256_calculate_pub_from_priv(&service_provider_privkey, &sig_pub);
+
+
+    print_256_msg("sig_pub.gx           ", (const uint32_t *) sig_pub.gx);
+    print_256_msg("sig_pub.gy           ", (const uint32_t *) sig_pub.gy);
+
+    print_256_msg("service_public_key.gx", (const uint32_t *) service_public_key.gx);
+    print_256_msg("service_public_key.gy", (const uint32_t *) service_public_key.gy);
+
+    print_256_msg("sig.x                ", msg2.sign_gb_ga.x);
+    print_256_msg("sig.y                ", msg2.sign_gb_ga.y);
+
+    sgx_ec256_public_t gb_ga[2];
+    memcpy(&gb_ga[0], &secret.public_b, sizeof(gb_ga[0]));
+    memcpy(&gb_ga[1], &secret.public_a, sizeof(gb_ga[1]));
+
+    char buffer[256];
+#if 1
+    sgx_ecc_state_handle_t ecc_handle;
+    sgx_ecc256_open_context(&ecc_handle);
+    uint8_t result;
+    sgx_status_t verbose_status = sgx_ecdsa_verify((uint8_t *) gb_ga, 2 * sizeof(sgx_ec256_public_t), &sig_pub,
+                                                   &msg2.sign_gb_ga, &result,
+                                                   ecc_handle);
+    sgx_ecc256_close_context(ecc_handle);
+
+    sprintf_s(buffer, 256, "sig verify result = %08x, status = %08x, SGX_EC_VALID=%08x", result, verbose_status,
+              SGX_EC_VALID);
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, buffer);
+#else
+    sgx_ecc_state_handle_t ecc_handle;
+    sgx_ecc256_open_context(&ecc_handle);
+
+    sgx_sha256_hash_t sha;
+    sgx_sha256_msg(reinterpret_cast<const uint8_t *>(gb_ga), 2 * sizeof(sgx_ec256_public_t), &sha);
+    print_256_msg("sha256(gb_ga)", (uint32_t *) sha);
+
+    sgx_sha256_msg(reinterpret_cast<const uint8_t *>(Gb_Ga.data()), 2 * sizeof(sgx_ec256_public_t), &sha);
+    print_256_msg("sha256(Gb_Ga)", (uint32_t *) sha);
+
+//    sgx_ec256_signature_t sigv;
+//    sgx_ec256_private_t privk;
+//    memcpy(&privk, &service_provider_privkey, sizeof(sgx_ec256_private_t));
+//    sgx_ecdsa_sign((uint8_t *) gb_ga, 4 * SGX_ECP256_KEY_SIZE, &privk, &sigv, ecc_handle);
+//    sgx_ecc256_close_context(ecc_handle);
+#endif
+
+#endif
     /* CMACsmk */
     status = sgx_rijndael128_cmac_msg(&secret.smk, (uint8_t *) &msg2, 148, &msg2.mac);
     check_sgx_status(status);
@@ -79,20 +165,20 @@ sgx_status_t private_build_msg2(ra_secret_t &secret, const sgx_spid_t &spid, con
     return status;
 }
 
-sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_status_t *att_status) {
+sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, attestation_xstatus_t *att_status) {
     sgx_status_t status;
     sgx_quote_t &quote = *(sgx_quote_t *) msg3.quote;
 
     /* Verify that Ga in msg3 matches Ga in msg1 */
     if (memcmp(&secret.public_a, &msg3.g_a, sizeof(sgx_ec256_public_t)) != 0) {
-        att_status->error = attestation_status_t::MSG3_ClientEnclaveSessingKeyMismatch;
+        att_status->error = MSG3_ClientEnclaveSessingKeyMismatch;
         return SGX_ERROR_UNEXPECTED;
     }
 
 
     /* Verify that the EPID group ID in the quote matches the one from msg1 */
     if (memcmp(secret.client_gid, quote.epid_group_id, sizeof(sgx_epid_group_id_t)) != 0) {
-        att_status->error = attestation_status_t::MSG3_EpidGroupIdMismatch;
+        att_status->error = MSG3_EpidGroupIdMismatch;
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -134,9 +220,9 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
     vector<uint8_t> verification(begin(digest), end(digest));
     verification.resize(SGX_REPORT_DATA_SIZE, 0);
 
-    uint8_t &report_data[SGX_REPORT_DATA_SIZE] = quote.report_body.report_data.d;
+    uint8_t *report_data = quote.report_body.report_data.d;
     if (memcmp(verification.data(), report_data, SGX_REPORT_DATA_SIZE) != 0) {
-        att_status->error = attestation_status_t::MSG3_InvalidReportData;
+        att_status->error = MSG3_InvalidReportData;
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -174,11 +260,11 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
         if (verbose) edividerWithText("ISV isv_enclave Trust Status");
 
         if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("OK"))) {
-            msg4->status.trust = attestation_status_t::Trusted;
+            msg4->status.trust = Trusted;
             if (verbose) eprintf("isv_enclave TRUSTED\n");
         } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("CONFIGURATION_NEEDED"))) {
             if (strict_trust) {
-                msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
+                msg4->status.trust = NotTrusted_Complicated;
                 if (verbose)
                     eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
                             reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
@@ -186,15 +272,15 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
                 if (verbose)
                     eprintf("isv_enclave TRUSTED and COMPLICATED - Reason: %s\n",
                             reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-                msg4->status.trust = attestation_status_t::Trusted_Complicated;
+                msg4->status.trust = Trusted_Complicated;
             }
         } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("GROUP_OUT_OF_DATE"))) {
-            msg4->status.trust = attestation_status_t::NotTrusted_Complicated;
+            msg4->status.trust = NotTrusted_Complicated;
             if (verbose)
                 eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
                         reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
         } else {
-            msg4->status.trust = attestation_status_t::NotTrusted;
+            msg4->status.trust = NotTrusted;
             if (verbose)
                 eprintf("isv_enclave NOT TRUSTED - Reason: %s\n",
                         reportObj["isvEnclaveQuoteStatus"].ToString().c_str());

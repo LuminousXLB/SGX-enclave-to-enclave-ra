@@ -2,10 +2,12 @@ enclave {
     include "protocol.h"
 
 	trusted {
-		public sgx_status_t ecall_do_attestation(ra_msg01_t msg01, [out] ra_msg4_t *msg4, [out] attestation_status_t* att_status);
+		public sgx_status_t ecall_do_attestation(ra_msg01_t msg01, [out] ra_msg4_t *msg4, [out] attestation_xstatus_t* att_status);
 	};
 
 	untrusted {
+	    void ocall_eputs([in, string] const char* macro_file, [in, string] const char* macro_function, int macro_line, [in, string] const char* message);
+
 	    void ocall_pre_get_sigrl([in, isary] sgx_epid_group_id_t gid, [out] sgx_spid_t* spid, [out] sgx_quote_sign_type_t* quote_type, [out, count=1] uint32_t *sigrl_length);
         void ocall_get_sigrl(uint32_t sigrl_size, [out, size=sigrl_size] uint8_t *sigrl_buffer);
 

@@ -18,8 +18,17 @@ vector<uint8_t> msg3;
 string ias_content;
 vector<string> ias_messages;
 
+void ocall_eputs(const char *macro_file, const char *macro_function, int macro_line, const char *message) {
+    if (message) {
+        eprintf("[%4d] %s: %s - %s\n", macro_line, macro_file, macro_function, message);
+    } else {
+        eprintf("[%4d] %s: %s\n", macro_line, macro_file, macro_function);
+    }
+}
+
 void ocall_pre_get_sigrl(sgx_epid_group_id_t gid, sgx_spid_t *spid, sgx_quote_sign_type_t *quote_type,
                          uint32_t *sigrl_size) {
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
 
     /* copy spid, quote_type */
     memcpy(spid, &config.spid, sizeof(sgx_spid_t));
@@ -35,14 +44,19 @@ void ocall_pre_get_sigrl(sgx_epid_group_id_t gid, sgx_spid_t *spid, sgx_quote_si
 }
 
 void ocall_get_sigrl(uint32_t sigrl_size, uint8_t *sigrl_buffer) {
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+
     if (sigrl_size < sigrl.length()) {
         exit(-1);
     } else {
         strcpy((char *) sigrl_buffer, sigrl.c_str());
     }
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
 }
 
 void ocall_pre_get_msg3(sgx_ra_msg2_t msg2, uint32_t *msg3_length) {
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+
     send_msg2(msg2, (uint8_t *) sigrl.data());
 
     sgx_ra_msg3_t *buffer;
@@ -58,6 +72,8 @@ void ocall_pre_get_msg3(sgx_ra_msg2_t msg2, uint32_t *msg3_length) {
 }
 
 void ocall_get_msg3(uint32_t msg3_size, uint8_t *msg3_buffer) {
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+
     if (msg3_size < msg3.size()) {
         exit(-1);
     } else {
@@ -66,6 +82,8 @@ void ocall_get_msg3(uint32_t msg3_size, uint8_t *msg3_buffer) {
 }
 
 void ocall_pre_get_attestation() {
+    printf("[%4d] %s: %s\n", __LINE__, __FILE__, __FUNCTION__);
+
     uint8_t *p_quote = ((sgx_ra_msg3_t *) msg3.data())->quote;
     vector<uint8_t> quote(p_quote, p_quote + 436 + ((sgx_quote_t *) p_quote)->signature_len);
 

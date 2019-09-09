@@ -698,7 +698,7 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
         eprintf("isv_enclave TRUSTED\n");
     } else if (enclaveTrusted == NotTrusted) {
         eprintf("isv_enclave NOT TRUSTED\n");
-    } else if (enclaveTrusted == Trusted_ItsComplicated) {
+    } else if (enclaveTrusted == Trusted_Complicated) {
         // Trusted, but client may be untrusted in the future unless it
         // takes action.
 
