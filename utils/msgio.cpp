@@ -15,35 +15,14 @@ in the License.
 
 */
 
-#ifdef _WIN32
-# ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-# endif
-
-# include <WinSock2.h>
-# include <WS2tcpip.h>
-
-typedef DWORD ssize_t;
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sgx_urts.h>
-
-#ifdef _WIN32
-# pragma comment(lib, "Ws2_32.lib")
-# pragma comment(lib, "Mswsock.lib")
-# pragma comment(lib, "AdvApi32.lib")
-#else
-
-# include <arpa/inet.h>
-# include <sys/socket.h>
-# include <netdb.h>
-# include <unistd.h>
-
-#endif
-
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -54,7 +33,7 @@ typedef DWORD ssize_t;
 
 using namespace std;
 
-static char *buffer = NULL;
+static char *buffer = nullptr;
 static uint32_t buffer_size = MSGIO_BUFFER_SZ;
 
 #ifndef _WIN32
@@ -74,21 +53,11 @@ MsgIO::MsgIO() {
 /* Connect to a remote server and port, and use socket IO */
 
 MsgIO::MsgIO(const char *peer, const char *port) {
-#ifdef _WIN32
-    WSADATA wsa;
-#endif
     int rv, proto;
     struct addrinfo *addrs, *addr, hints;
     s = ls = -1;
 
     use_stdio = false;
-#ifdef _WIN32
-    rv = WSAStartup(MAKEWORD(2, 2), &wsa);
-    if (rv != 0) {
-        eprintf("WSAStartup: %d\n", rv);
-        throw std::runtime_error("WSAStartup failed");
-    }
-#endif
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -102,7 +71,7 @@ MsgIO::MsgIO(const char *peer, const char *port) {
         throw std::runtime_error("getaddrinfo failed");
     }
 
-    for (addr = addrs; addr != NULL; addr = addr->ai_next) {
+    for (addr = addrs; addr != nullptr; addr = addr->ai_next) {
         proto = addr->ai_family;
         s = socket(addr->ai_family, addr->ai_socktype,
                    addr->ai_protocol);
@@ -111,7 +80,7 @@ MsgIO::MsgIO(const char *peer, const char *port) {
             continue;
         }
 
-        if (peer == NULL) {    // We're the server
+        if (peer == nullptr) {    // We're the server
             int enable = 1;
 
             setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *) &enable, sizeof(enable));
@@ -131,46 +100,31 @@ MsgIO::MsgIO(const char *peer, const char *port) {
             if (connect(s, addr->ai_addr, (int) addr->ai_addrlen) == 0) break;
         }
 
-#ifdef _WIN32
-        closesocket(s);
-#else
         close(s);
-#endif
+
         s = INVALID_SOCKET;
     }
 
     freeaddrinfo(addrs);
 
     if (s == INVALID_SOCKET) {
-        if (peer == NULL) {
-#ifdef _WIN32
-            eprintf("bind: failed on error %ld\n", WSAGetLastError());
-#else
+        if (peer == nullptr) {
             perror("bind");
-#endif
         } else {
             eprintf("%s: ", peer);
-#ifdef _WIN32
-            eprintf("connect: failed on error %ld\n", WSAGetLastError());
-#else
             perror("connect");
-#endif
         }
         throw std::runtime_error("could not establish socket");
     }
 
-    if (peer == NULL) {    // Server here. Create our listening socket.
+    if (peer == nullptr) {    // Server here. Create our listening socket.
         int enable = 1;
         ls = s;                // Use 'ls' to refer to the listening socket
         s = INVALID_SOCKET;    // and 's' as the session socket.
 
         if (listen(ls, 5) == -1) { // The "traditional" backlog value in UNIX
             perror("listen");
-#ifdef _WIN32
-            closesocket(ls);
-#else
             close(ls);
-#endif
             throw std::runtime_error("could not listen on socket");
         }
 
@@ -185,23 +139,13 @@ MsgIO::MsgIO(const char *peer, const char *port) {
 MsgIO::~MsgIO() {
     // Shutdown our socket(s)
     if (s != -1) {
-#ifdef _WIN32
-        shutdown(s, 2);
-        closesocket(s);
-#else
         shutdown(s, SHUT_RDWR);
         close(s);
-#endif
     }
 
     if (ls != -1) {
-#ifdef _WIN32
-        shutdown(ls, 2);
-        closesocket(ls);
-#else
         shutdown(ls, SHUT_RDWR);
         close(ls);
-#endif
     }
 }
 
@@ -220,13 +164,8 @@ int MsgIO::server_loop() {
 
     s = accept(ls, (sockaddr *) &cliaddr, &slen);
     if (s == INVALID_SOCKET) {
-#ifdef _WIN32
-        closesocket(ls);
-        eprintf("accept: %d\n", WSAGetLastError());
-#else
         close(ls);
         perror("accept");
-#endif
         return 0;
     }
 
@@ -238,12 +177,11 @@ int MsgIO::server_loop() {
 
     if (proto == AF_INET) {
         char clihost[INET_ADDRSTRLEN];
-        sockaddr_in *sa = (sockaddr_in *) &cliaddr;
+        auto *sa = (sockaddr_in *) &cliaddr;
 
         memset(clihost, 0, sizeof(clihost));
 
-        if (inet_ntop(proto, &sa->sin_addr, clihost,
-                      sizeof(clihost)) != NULL) {
+        if (inet_ntop(proto, &sa->sin_addr, clihost, sizeof(clihost)) != nullptr) {
 
             eprintf("%s", clihost);
         } else eprintf("(could not translate network address)");
@@ -252,9 +190,7 @@ int MsgIO::server_loop() {
 
         memset(clihost, 0, sizeof(clihost));
 
-        if (inet_ntop(proto, &cliaddr.sin6_addr, clihost,
-                      sizeof(clihost)) != NULL) {
-
+        if (inet_ntop(proto, &cliaddr.sin6_addr, clihost, sizeof(clihost)) != nullptr) {
             eprintf("%s", clihost);
         } else eprintf("(could not translate network address)");
     }
@@ -267,13 +203,8 @@ void MsgIO::disconnect() {
     if (use_stdio) return;
 
     if (s != -1) {
-#ifdef _WIN32
-        shutdown(s, 2);
-        closesocket(s);
-#else
         shutdown(s, SHUT_RDWR);
         close(s);
-#endif
     }
 }
 
@@ -290,7 +221,6 @@ int MsgIO::read(vector<uint8_t> &message_buffer) {
 
 int MsgIO::read(void **dest, size_t *sz) {
     ssize_t bread = 0;
-    bool repeat = true;
     int ws;
 
     if (use_stdio) return read_msg(dest, sz);
@@ -302,7 +232,7 @@ int MsgIO::read(void **dest, size_t *sz) {
 
     if (sz) *sz = 0;
 
-    while (repeat) {
+    while (true) {
         again:
         bread = recv(s, lbuffer, sizeof(lbuffer), 0);
         if (bread == -1) {
@@ -364,7 +294,7 @@ void MsgIO::send(void *src, size_t sz) {
     wbuffer.append(hexstring(src, sz));
     wbuffer.append("\n");
 
-    while (len = wbuffer.length()) {
+    while ((len = wbuffer.length())) {
         again:
         bsent = ::send(s, wbuffer.c_str(), (int) len, 0);
         if (bsent == -1) {
@@ -416,9 +346,9 @@ int read_msg(void **dest, size_t *sz) {
     size_t bread;
     int repeat = 1;
 
-    if (buffer == NULL) {
+    if (buffer == nullptr) {
         buffer = (char *) malloc(buffer_size);
-        if (buffer == NULL) {
+        if (buffer == nullptr) {
             perror("malloc");
             return -1;
         }
@@ -426,7 +356,7 @@ int read_msg(void **dest, size_t *sz) {
 
     bread = 0;
     while (repeat) {
-        if (fgets(&buffer[bread], (int) (buffer_size - bread), stdin) == NULL) {
+        if (fgets(&buffer[bread], (int) (buffer_size - bread), stdin) == nullptr) {
             if (ferror(stdin)) {
                 perror("fgets");
                 return -1;
@@ -449,7 +379,7 @@ int read_msg(void **dest, size_t *sz) {
         } else {
             buffer_size += MSGIO_BUFFER_SZ;
             buffer = (char *) realloc(buffer, buffer_size);
-            if (buffer == NULL) return -1;
+            if (buffer == nullptr) return -1;
         }
     }
 
@@ -462,7 +392,7 @@ int read_msg(void **dest, size_t *sz) {
     }
 
     *dest = malloc(bread / 2);
-    if (*dest == NULL) return -1;
+    if (*dest == nullptr) return -1;
 
     if (debug) {
         edividerWithText("read buffer");
@@ -472,7 +402,7 @@ int read_msg(void **dest, size_t *sz) {
 
     from_hexstring((unsigned char *) *dest, buffer, bread / 2);
 
-    if (sz != NULL) *sz = bread;
+    if (sz != nullptr) *sz = bread;
 
     return 1;
 }

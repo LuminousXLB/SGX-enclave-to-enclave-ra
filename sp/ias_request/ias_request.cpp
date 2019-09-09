@@ -354,11 +354,11 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content,
     size_t sigsz;
     ias_error_t status;
     int rv;
-    unsigned char *sig = NULL;
-    EVP_PKEY *pkey = NULL;
+    unsigned char *sig = nullptr;
+    EVP_PKEY *pkey = nullptr;
     Agent *agent = r_conn->new_agent();
 
-    if (agent == NULL) {
+    if (agent == nullptr) {
         eprintf("Could not allocate agent object");
         return IAS_QUERY_FAILED;
     }

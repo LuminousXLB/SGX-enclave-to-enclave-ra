@@ -41,8 +41,7 @@ public:
 
     virtual int initialize() { return 1; };
 
-    virtual int request(string const &url, string const &postdata,
-                        Response &response) { return 0; };
+    virtual int request(string const &url, string const &postdata, Response &response) { return 0; };
 };
 
 

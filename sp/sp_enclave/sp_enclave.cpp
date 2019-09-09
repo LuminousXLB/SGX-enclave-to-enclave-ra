@@ -25,17 +25,10 @@ static const sgx_ec256_private_t service_private_key = {
                 0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
         }
 };
-//static const unsigned char def_service_private_key[32] = {
-//        0x90, 0xe7, 0x6c, 0xbb, 0x2d, 0x52, 0xa1, 0xce,
-//        0x3b, 0x66, 0xde, 0x11, 0x43, 0x9c, 0x87, 0xec,
-//        0x1f, 0x86, 0x6a, 0x3b, 0x65, 0xb6, 0xae, 0xea,
-//        0xad, 0x57, 0x34, 0x53, 0xd1, 0x03, 0x8c, 0x01
-//};
 
 ra_secret_t secret;
 
-sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
-                                  ra_msg4_t *msg4, attestation_xstatus_t *att_status) {
+sgx_status_t ecall_do_attestation(ra_msg01_t msg01, ra_msg4_t *msg4, attestation_xstatus_t *att_status) {
 
     if (!msg4 || !att_status) {
         return SGX_ERROR_INVALID_PARAMETER;
@@ -87,8 +80,8 @@ sgx_status_t ecall_do_attestation(ra_msg01_t msg01,
     status = private_proc_msg3(secret, *reinterpret_cast<const sgx_ra_msg3_t *> (msg3_buffer.data()), att_status);
     check_sgx_status(status);
 
-    /* get  report */
-    /* proc msg4 */
+    /* get attestation report */
+    /* build msg4 */
     /* send msg4 */
 
     return SGX_SUCCESS;

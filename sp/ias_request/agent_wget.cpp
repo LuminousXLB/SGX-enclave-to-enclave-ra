@@ -43,8 +43,7 @@ extern int debug, verbose;
 
 string AgentWget::name = "wget";
 
-int AgentWget::request(string const &url, string const &post,
-                       Response &response) {
+int AgentWget::request(string const &url, string const &post, Response &response) {
     HttpResponseParser parser;
     int pipefd[2];
     pid_t pid;
@@ -93,20 +92,20 @@ int AgentWget::request(string const &url, string const &post,
     }
 
     // Only need to initialize these once
-    if (wget_args.size() == 0) {
-        wget_args.push_back("wget");
+    if (wget_args.empty()) {
+        wget_args.emplace_back("wget");
 
         // Output options
 
-        if (!verbose) wget_args.push_back("--quiet");
-        wget_args.push_back("--output-document=-");
-        wget_args.push_back("--save-headers");
-        wget_args.push_back("--content-on-error");
-        wget_args.push_back("--no-http-keep-alive");
+        if (!verbose) wget_args.emplace_back("--quiet");
+        wget_args.emplace_back("--output-document=-");
+        wget_args.emplace_back("--save-headers");
+        wget_args.emplace_back("--content-on-error");
+        wget_args.emplace_back("--no-http-keep-alive");
 
         arg = conn->proxy_server();
         // Override environment
-        if (arg != "") {
+        if (!arg.empty()) {
             string proxy_url = "http://";
             proxy_url += arg;
             if (conn->proxy_port() != 80) {
@@ -119,7 +118,7 @@ int AgentWget::request(string const &url, string const &post,
         }
 
         if (conn->proxy_mode() == IAS_PROXY_NONE) {
-            wget_args.push_back("--no-proxy");
+            wget_args.emplace_back("--no-proxy");
         } else if (conn->proxy_mode() == IAS_PROXY_FORCE) {
             unsetenv("no_proxy");
         }
@@ -147,11 +146,11 @@ int AgentWget::request(string const &url, string const &post,
         // construct then add the Ocp-Apim-Subscription-Key subscription key header
         string subscriptionKeyHeader = "--header=Ocp-Apim-Subscription-Key: ";
         subscriptionKeyHeader.append(conn->getSubscriptionKey());
-        wget_args.push_back(subscriptionKeyHeader.c_str());
+        wget_args.emplace_back(subscriptionKeyHeader.c_str());
 
         if (postdata) {
             string contentTypeHeader = "--header=Content-Type: application/json";
-            wget_args.push_back(contentTypeHeader.c_str());
+            wget_args.emplace_back(contentTypeHeader.c_str());
             arg = "--post-file=";
             arg += tmpfile;
             wget_args.push_back(arg);
@@ -159,7 +158,7 @@ int AgentWget::request(string const &url, string const &post,
 
         // Add the url
 
-        wget_args.push_back(url.c_str());
+        wget_args.emplace_back(url.c_str());
 
         sz = wget_args.size();
 
@@ -167,19 +166,19 @@ int AgentWget::request(string const &url, string const &post,
 
         if (debug) eprintf("+++ Exec:");
         argv = (char **) malloc(sizeof(char *) * (sz + 1));
-        if (argv == NULL) {
+        if (argv == nullptr) {
             perror("malloc");
             exit(1);
         }
         for (i = 0; i < sz; ++i) {
             argv[i] = strdup(wget_args[i].c_str());
-            if (argv[i] == NULL) {
+            if (argv[i] == nullptr) {
                 perror("strdup");
                 exit(1);
             }
             if (debug) eprintf(" %s", argv[i]);
         }
-        argv[sz] = 0;
+        argv[sz] = nullptr;
         if (debug) eprintf("\n");
 
         retry_dup:
