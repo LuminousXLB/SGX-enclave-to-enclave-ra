@@ -24,14 +24,12 @@ in the License.
 
 #include <sys/types.h>
 #include <sgx_urts.h>
-#include <stdio.h>
-
-#ifdef _WIN32
-#include <WS2tcpip.h>
-#endif
+#include <cstdio>
 
 #include <string>
 #include <vector>
+#include "socket_log.h"
+
 using namespace std;
 
 #define STRUCT_INCLUDES_PSIZE    0
@@ -42,9 +40,7 @@ using namespace std;
 
 #define DEFAULT_PORT    "7777"        // A C string for getaddrinfo()
 
-#ifndef _WIN32
 typedef int SOCKET;
-#endif
 
 class MsgIO {
     string wbuffer, rbuffer;
@@ -71,25 +67,6 @@ public:
 
     void send(void *buf, size_t f_size);
 };
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern char debug;
-extern char verbose;
-
-int read_msg(void **dest, size_t *sz);
-
-void send_msg_partial(void *buf, size_t f_size);
-void send_msg(void *buf, size_t f_size);
-
-void fsend_msg_partial(FILE *fp, void *buf, size_t f_size);
-void fsend_msg(FILE *fp, void *buf, size_t f_size);
-
-#ifdef __cplusplus
-};
-#endif
 
 
 #endif
