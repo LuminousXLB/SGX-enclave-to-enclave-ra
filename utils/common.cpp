@@ -40,75 +40,69 @@ using namespace std;
 
 #define WARNING_INDENT(level) (string(level, '*'))
 
-#define TIMESTR_SIZE	64
+#define TIMESTR_SIZE    64
 
-void edividerWithText (const char *text)
-{
-	dividerWithText(stderr, text);
-	if ( fplog != NULL ) dividerWithText(fplog, text);
+void edividerWithText(const char *text) {
+    dividerWithText(stderr, text);
+    if (fplog != nullptr) dividerWithText(fplog, text);
 }
 
-void dividerWithText (FILE *fd, const char *text)
-{
-	fprintf(fd, "\n%s\n", LINE_HEADER(text));
+void dividerWithText(FILE *fd, const char *text) {
+    fprintf(fd, "\n%s\n", LINE_HEADER(text));
 }
 
-void edivider ()
-{
-	divider(stderr);
-	if ( fplog != NULL ) divider(fplog);
+void edivider() {
+    divider(stderr);
+    if (fplog != nullptr) divider(fplog);
 }
 
-void divider (FILE * fd)
-{
-	fprintf(fd, "%s\n", LINE_COMPLETE);
+void divider(FILE *fd) {
+    fprintf(fd, "%s\n", LINE_COMPLETE);
 }
 
-int eprintf (const char *format, ...)
-{
-	va_list va;
-	int rv;
+int eprintf(const char *format, ...) {
+    va_list va;
+    int rv;
 
-	va_start(va, format);
-	rv= vfprintf(stderr, format, va);
-	va_end(va);
+    va_start(va, format);
+    rv = vfprintf(stderr, format, va);
+    va_end(va);
 
-	if ( fplog != NULL ) {
-		time_t ts;
-		struct tm timetm, *timetmp;
-		char timestr[TIMESTR_SIZE];	
+    if (fplog != NULL) {
+        time_t ts;
+        struct tm timetm, *timetmp;
+        char timestr[TIMESTR_SIZE];
 
-		/* Don't timestamp a single "\n" */
-		if ( !(strlen(format) == 1 && format[0] == '\n') ) {
-			time(&ts);
+        /* Don't timestamp a single "\n" */
+        if (!(strlen(format) == 1 && format[0] == '\n')) {
+            time(&ts);
 #ifndef _WIN32
-			timetmp= localtime(&ts);
-			if ( timetmp == NULL ) {
-				perror("localtime");
-				return 0;
-			}
-			timetm= *timetmp;
+            timetmp = localtime(&ts);
+            if (timetmp == NULL) {
+                perror("localtime");
+                return 0;
+            }
+            timetm = *timetmp;
 #else
-			localtime_s(&timetm, &ts);
+            localtime_s(&timetm, &ts);
 #endif
 
-			/* If you change this format, you _may_ need to change TIMESTR_SIZE */
-			if ( strftime(timestr, TIMESTR_SIZE, "%b %e %Y %T", &timetm) == 0 ) {
-				/* oops */
-				timestr[0]= 0;
-			}
-			fprintf(fplog, "%s ", timestr);
-		}
-		va_start(va, format);
-		rv= vfprintf(fplog, format, va);
-		va_end(va);
-	}
+            /* If you change this format, you _may_ need to change TIMESTR_SIZE */
+            if (strftime(timestr, TIMESTR_SIZE, "%b %e %Y %T", &timetm) == 0) {
+                /* oops */
+                timestr[0] = 0;
+            }
+            fprintf(fplog, "%s ", timestr);
+        }
+        va_start(va, format);
+        rv = vfprintf(fplog, format, va);
+        va_end(va);
+    }
 
-	return rv;
+    return rv;
 }
 
-int eputs (const char *s)
-{
-	if ( fplog != NULL ) fputs(s, fplog);
-	return fputs(s, stderr);
+int eputs(const char *s) {
+    if (fplog != NULL) fputs(s, fplog);
+    return fputs(s, stderr);
 }
