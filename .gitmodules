@@ -1,0 +1,6 @@
+[submodule "utils/encoding/cppcodec"]
+	path = utils/encoding/cppcodec
+	url = https://github.com/tplgy/cppcodec.git
+[submodule "utils/encoding/simplejson"]
+	path = utils/encoding/simplejson
+	url = https://github.com/simplejson/simplejson.git
