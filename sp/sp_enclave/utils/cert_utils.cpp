@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <openssl/err.h>
 #include <exception>
+#include <openssl/x509.h>
+#include "x509_vfy/x509_vfy.h"
 
 using namespace std;
 
@@ -141,7 +143,7 @@ bool cert_verify(X509_STORE *store, X509_STACK *chain) {
 
         ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> Before X509_verify_cert");
 
-        int rv = X509_verify_cert(ctx);
+        int rv = hook_X509_verify_cert_hook(ctx);
 
         ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> After X509_verify_cert");
 

@@ -4,6 +4,7 @@ set(EDL_SEARCH_PATHS sp_enclave)
 
 set(SP_ENCLAVE_UTILS_IO sp_enclave/utils/io.h sp_enclave/utils/io.cpp)
 set(SP_ENCLAVE_UTILS_CRYPTO sp_enclave/utils/crypto_utils.h sp_enclave/utils/crypto_utils.cpp)
+add_library(SP_ENCLAVE_UTILS_CERT_X509_HOOK sp_enclave/utils/x509_vfy/x509_vfy.c sp_enclave/utils/x509_vfy/x509_vfy.h)
 set(SP_ENCLAVE_UTILS_CERT sp_enclave/utils/cert_utils.h sp_enclave/utils/cert_utils.cpp)
 set(SP_ENCLAVE_UTILS_HTTP sp_enclave/utils/urldecode.h sp_enclave/utils/urldecode.cpp)
 #httpparser/httpresponseparser.h httpparser/response.h
@@ -15,6 +16,7 @@ add_enclave_library(sp_enclave
         EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
 target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR} sp_enclave/utils)
+target_link_libraries(sp_enclave SP_ENCLAVE_UTILS_CERT_X509_HOOK)
 target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO} sgx_tstdc sgx_trts pthread)
 
 # sign the enclave, according to configurations one-step or two-step signing will be performed.
