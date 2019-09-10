@@ -55,9 +55,6 @@ void ias_list_agents(FILE *fp) {
 #ifdef AGENT_WGET
     fprintf(fp, "%s\n", AgentWget::name.c_str());
 #endif
-#ifdef AGENT_WINHTTP
-    fprintf(fp, "%s\n", AgentWinHttp::name.c_str());
-#endif
 }
 
 IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscriptionKey, char *secSubscriptionKey) {
@@ -83,14 +80,6 @@ int IAS_Connection::agent(const char *agent_name) {
         return 1;
     }
 #endif
-#ifdef AGENT_WINHTTP
-    if (AgentWinHttp::name == agent_name)
-    {
-        c_agent_name = agent_name;
-        return 1;
-    }
-#endif
-
     return 0;
 }
 
@@ -224,22 +213,6 @@ Agent *IAS_Connection::new_agent() {
             return newagent;
         }
 #endif
-#ifdef AGENT_WINHTTP
-        if (c_agent_name == AgentWinHttp::name)
-        {
-            try
-            {
-                newagent = (Agent *)new AgentWinHttp(this);
-            }
-            catch (...)
-            {
-                if (newagent != NULL)
-                    delete newagent;
-                return NULL;
-            }
-            return newagent;
-        }
-#endif
     } else {
         // Otherwise, take the first available using this hardcoded
         // order of preference.
@@ -255,21 +228,6 @@ Agent *IAS_Connection::new_agent() {
                     delete newagent;
                 }
                 newagent = nullptr;
-            }
-        }
-#endif
-#ifdef AGENT_WINHTTP
-        if (newagent == NULL)
-        {
-            if (debug)
-                eprintf("+++ Trying agent_winhttp\n");
-            try
-            {
-                newagent = (Agent *)new AgentWinHttp(this);
-            }
-            catch (...)
-            {
-                newagent = NULL;
             }
         }
 #endif

@@ -1,13 +1,23 @@
 cmake_minimum_required(VERSION 3.10)
 
-
 set(EDL_SEARCH_PATHS sp_enclave)
+
+set(SP_ENCLAVE_UTILS_IO sp_enclave/utils/io.h sp_enclave/utils/io.cpp)
+set(SP_ENCLAVE_UTILS_CRYPTO sp_enclave/utils/crypto_utils.h sp_enclave/utils/crypto_utils.cpp)
+set(SP_ENCLAVE_UTILS_CERT sp_enclave/utils/cert_utils.h sp_enclave/utils/cert_utils.cpp)
+set(SP_ENCLAVE_UTILS_HTTP sp_enclave/utils/urldecode.h sp_enclave/utils/urldecode.cpp)
+#httpparser/httpresponseparser.h httpparser/response.h
 
 # build enclave library
 add_enclave_library(sp_enclave
-        SRCS sp_enclave/sp_enclave.cpp sp_enclave/crypto/crypto_utils.h sp_enclave/crypto/crypto_utils.cpp sp_enclave/sp_routines.cpp ../protocol/error.h
+        SRCS sp_enclave/sp_enclave.cpp sp_enclave/sp_routines.cpp ${SP_ENCLAVE_UTILS_IO} ${SP_ENCLAVE_UTILS_CRYPTO} ${SP_ENCLAVE_UTILS_CERT} ${SP_ENCLAVE_UTILS_HTTP}
         EDL sp_enclave/sp_enclave.edl
-        EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
+        EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS}
+        #        CUSTOM_LIBRARY_DIRS -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO}
+        )
+
+target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR} sp_enclave/utils)
+target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO}  sgx_tstdc pthread)
 
 # sign the enclave, according to configurations one-step or two-step signing will be performed.
 # default one-step signing output enclave name is target.signed.so, change it with OUTPUT option.
@@ -15,7 +25,7 @@ enclave_sign(sp_enclave
         KEY sp_enclave/sp_enclave_private.pem
         CONFIG sp_enclave/sp_enclave.config.xml)
 
-## build untrusted library to be run with enclave
+# build untrusted library to be run with enclave
 #add_untrusted_library(sp_ocalls
 #        STATIC
 #        SRCS sp_ocalls.cpp

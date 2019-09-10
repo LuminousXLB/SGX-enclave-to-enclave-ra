@@ -16,6 +16,14 @@ typedef enum {
     MSG3_ClientEnclaveSessingKeyMismatch,
     MSG3_InvalidReportData,
     MSG3_EpidGroupIdMismatch,
+    ATTR_ParseFailed,
+    ATTR_SigningCertificateNotFound,
+    ATTR_CertificateHeaderInvalid,
+    ATTR_OpensslError,
+    ATTR_CertificationVerifyFailed,
+    ATTR_SignatureNotFound,
+    ATTR_SignatureInvalid,
+    ATTR_SignatureVerifyFailed,
 } attestation_error_t;
 
 

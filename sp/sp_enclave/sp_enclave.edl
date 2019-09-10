@@ -1,5 +1,13 @@
 enclave {
+    from "sgx_tstdc.edl" import *;
+
     include "protocol.h"
+
+    enum OutputTarget {
+        TO_STDOUT = 0,
+        TO_STDERR = 1,
+        TO_APPLOG = 2
+    };
 
 	trusted {
 	    public sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_type, ra_msg01_t msg01, [in, size=sigrl_size] const char *sigrl, uint32_t sigrl_size, [out, size=msg2_size] sgx_ra_msg2_t *msg2, uint32_t msg2_size, [out] attestation_error_t *att_error);
@@ -9,6 +17,8 @@ enclave {
 	};
 
 	untrusted {
+        int ocall_fputs(OutputTarget target, [in, string] const char *str);
+
 	    void ocall_eputs([in, string] const char* macro_file, [in, string] const char* macro_function, int macro_line, [in, string] const char* message);
 
 	};

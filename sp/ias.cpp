@@ -52,7 +52,7 @@ ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_
 
 ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote, string &response) {
     char *b64quote = base64_encode((char *) quote.data(), quote.size());
-    if (b64quote == NULL) {
+    if (b64quote == nullptr) {
         eprintf("Could not base64 encode the quote\n");
         return 0;
     }
@@ -79,10 +79,13 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
     //#define WGET_SERVER_ERROR   8
     //#define WGET_AUTH_ERROR     6
 
-    if (exitcode == 6) {
+    delete req;
+    if (exitcode == 8 || exitcode == 0) {
+        return IAS_OK;
+    } else if (exitcode == 6) {
         return IAS_UNAUTHORIZED;
     } else {
-        return IAS_OK;
+        return -1;
     }
 }
 

@@ -40,6 +40,10 @@ namespace httpparser {
             return consume(resp, begin, end);
         }
 
+        ParseResult parse(Response &resp, const std::string &string) {
+            return consume(resp, string.c_str(), string.c_str() + string.length());
+        }
+
     private:
         static bool checkIfConnection(const Response::HeaderItem &item) {
             return strcasecmp(item.name.c_str(), "Connection") == 0;

@@ -38,4 +38,9 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret,
                                const sgx_ra_msg3_t &msg3,
                                attestation_error_t &att_error);
 
+sgx_status_t private_build_msg4(ra_secret_t &secret,
+                                const string &attestation_response,
+                                ra_msg4_t &msg4,
+                                attestation_error_t &att_error);
+
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_SP_ROUTINES_H

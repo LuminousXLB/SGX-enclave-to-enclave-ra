@@ -2,9 +2,8 @@
 #include "protocol.h"
 #include "sp_routines.h"
 #include "sp_enclave_t.h"
-#include <vector>
 #include <tlibc/mbusafecrt.h>
-#include "common.h"
+#include <string>
 
 using namespace std;
 
@@ -77,10 +76,10 @@ sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, c
     status = private_proc_msg3(secret, *msg3, *att_error);
     check_sgx_status(status);
 
-    /* parse attestation_report */
-    /* verify attestation_report */
-
-    /* send msg4 */
+    /* build msg4 */
+    const string attestation_response = attestation_report;
+    status = private_build_msg4(secret, attestation_response, *msg4, *att_error);
+    check_sgx_status(status);
 
     return status;
 }

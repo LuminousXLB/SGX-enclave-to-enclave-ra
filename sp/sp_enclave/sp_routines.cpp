@@ -2,10 +2,12 @@
 #include "httpparser/response.h"
 
 #include "sp_routines.h"
-#include "crypto/crypto_utils.h"
+#include "utils/crypto_utils.h"
 #include <array>
 #include "sp_enclave_t.h"
 #include <mbusafecrt.h>
+#include "utils/cert_utils.h"
+#include "utils/json.hpp"
 
 using namespace std;
 
@@ -163,6 +165,36 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
     return SGX_SUCCESS;
 }
 
+sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_response, ra_msg4_t &msg4,
+                                attestation_error_t &att_error) {
+    sgx_status_t status = SGX_SUCCESS;
+
+    /* parse attestation_report */
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, attestation_response.c_str());
+    httpparser::Response response;
+    httpparser::HttpResponseParser parser;
+    httpparser::HttpResponseParser::ParseResult result = parser.parse(response, attestation_response);
+    if (result != httpparser::HttpResponseParser::ParsingCompleted) {
+        att_error = ATTR_ParseFailed;
+        return SGX_ERROR_UNEXPECTED;
+    }
+
+    /* verify signature */
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "verify signature");
+    status = verify_certificate(response, att_error);
+    check_sgx_status(status);
+
+    /* verify attestation_report */
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "verify attestation_report");
+    json::JSON reportObj = json::JSON::Load(response.content_string());
+
+    // TODO: return this for further check
+    unsigned int report_version = (unsigned int) reportObj["version"].ToInt();
+
+    int rv;
+    ocall_fputs(&rv, TO_STDOUT, response.inspect().c_str());
+
+}
 
 #if 0
 // whether trust
