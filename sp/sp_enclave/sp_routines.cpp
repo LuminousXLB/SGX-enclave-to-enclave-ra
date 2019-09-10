@@ -1,5 +1,5 @@
-//#include "httpparser/httpresponseparser.h"
-//#include "httpparser/response.h"
+#include "httpparser/httpresponseparser.h"
+#include "httpparser/response.h"
 
 #include "sp_routines.h"
 #include "crypto/crypto_utils.h"
