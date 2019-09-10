@@ -12,12 +12,10 @@ set(SP_ENCLAVE_UTILS_HTTP sp_enclave/utils/urldecode.h sp_enclave/utils/urldecod
 add_enclave_library(sp_enclave
         SRCS sp_enclave/sp_enclave.cpp sp_enclave/sp_routines.cpp ${SP_ENCLAVE_UTILS_IO} ${SP_ENCLAVE_UTILS_CRYPTO} ${SP_ENCLAVE_UTILS_CERT} ${SP_ENCLAVE_UTILS_HTTP}
         EDL sp_enclave/sp_enclave.edl
-        EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS}
-        #        CUSTOM_LIBRARY_DIRS -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO}
-        )
+        EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
 target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR} sp_enclave/utils)
-target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO}  sgx_tstdc pthread)
+target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO} sgx_tstdc sgx_trts pthread)
 
 # sign the enclave, according to configurations one-step or two-step signing will be performed.
 # default one-step signing output enclave name is target.signed.so, change it with OUTPUT option.

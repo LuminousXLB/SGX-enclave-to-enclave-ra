@@ -148,7 +148,7 @@ if(SGX_FOUND)
     function(add_enclave_library target)
         set(optionArgs USE_PREFIX)
         set(oneValueArgs EDL LDSCRIPT)
-        set(multiValueArgs SRCS TRUSTED_LIBS EDL_SEARCH_PATHS CUSTOM_INCLUDE_DIRS CUSTOM_LIBRARY_DIRS)
+        set(multiValueArgs SRCS TRUSTED_LIBS EDL_SEARCH_PATHS)
         cmake_parse_arguments("SGX" "${optionArgs}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
         message(STATUS "Configuring add_enclave_library for ${target}")
@@ -168,7 +168,7 @@ if(SGX_FOUND)
 
         add_library(${target} SHARED ${SGX_SRCS} $<TARGET_OBJECTS:${target}-edlobj>)
         set_target_properties(${target} PROPERTIES COMPILE_FLAGS ${ENCLAVE_CXX_FLAGS})
-        target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CUSTOM_INCLUDE_DIRS})
+        target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
         set(TLIB_LIST "")
         foreach(TLIB ${SGX_TRUSTED_LIBS})
@@ -182,7 +182,6 @@ if(SGX_FOUND)
             -Wl,--start-group ${TLIB_LIST} -lsgx_tstdc -lsgx_tcxx -lsgx_tkey_exchange -lsgx_tcrypto -l${SGX_TSVC_LIB} -Wl,--end-group \
             -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
             -Wl,-pie,-eenclave_entry -Wl,--export-dynamic \
-            ${CUSTOM_LIBRARY_DIRS} \
             ${LDSCRIPT_FLAG} \
             -Wl,--defsym,__ImageBase=0")
     endfunction()
