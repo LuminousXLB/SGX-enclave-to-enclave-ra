@@ -1,5 +1,6 @@
 enclave {
-    from "sgx_tstdc.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+    /* from "sgx_tstdc.edl" import *; */
 
     include "protocol.h"
 

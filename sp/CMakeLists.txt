@@ -15,7 +15,6 @@ add_enclave_library(sp_enclave
         EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
 target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR} sp_enclave/utils)
-target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO} sgx_tstdc sgx_trts pthread)
 
 # sign the enclave, according to configurations one-step or two-step signing will be performed.
 # default one-step signing output enclave name is target.signed.so, change it with OUTPUT option.
