@@ -24,8 +24,6 @@ using namespace std;
 #define CLEAR_OPT(x, y) x=x&~y
 #define OPT_ISSET(x, y) x&y
 
-#define ENCLAVE_NAME    "isv_enclave.signed.so"
-
 
 typedef struct config_struct {
     char mode;

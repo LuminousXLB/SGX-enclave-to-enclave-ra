@@ -24,11 +24,9 @@ enclave_sign(isv_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(isv_app
-        SRCS isv_app.cpp quote_size.c sgx_detect/sgx_detect_linux.c sgx_detect/sgx_stub.c config.cpp do_attestation.cpp
+        SRCS isv_app.cpp config.cpp do_attestation.cpp
         EDL isv_enclave/isv_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 
-target_link_libraries(isv_app msgio common fileio logfile hexutil base64 crypto dl)
-target_link_libraries(isv_app sgx_urts ${SGX_LIBRARY_PATH}/libsgx_capable.a)
-target_compile_options(isv_app PRIVATE -Wno-pointer-to-int-cast)
+target_link_libraries(isv_app sgx_utils msgio common fileio logfile hexutil base64 crypto dl)
 add_dependencies(isv_app isv_enclave-sign)
