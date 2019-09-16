@@ -85,22 +85,19 @@ char verbose = 0;
 
 
 int main(int argc, char *argv[]) {
-    config_t config;
+    const UserArgs user_args = UserArgs();
+
+//    config_t config;
     sgx_launch_token_t token = {0};
     sgx_status_t status;
     sgx_enclave_id_t eid = 0;
     int updated = 0;
-    int sgx_support;
-    uint32_t i;
-    EVP_PKEY *service_public_key = NULL;
-    char have_spid = 0;
-    char flag_stdio = 0;
 
     /* Create a logfile to capture debug output and actual msg data */
     fplog = create_logfile("client.log");
     dividerWithText(fplog, "Client Log Timestamp");
 
-    const time_t timeT = time(NULL);
+    const time_t timeT = time(nullptr);
     struct tm lt, *ltp;
 
     ltp = localtime(&timeT);
@@ -119,9 +116,7 @@ int main(int argc, char *argv[]) {
             lt.tm_sec);
     divider(fplog);
 
-    memset(&config, 0, sizeof(config));
-    config.mode = MODE_ATTEST;
-
+#if 0
     static struct option long_opt[] =
             {
                     {"help",        no_argument,       0, 'h'},
@@ -142,25 +137,22 @@ int main(int argc, char *argv[]) {
                     {"stdio",       no_argument,       0, 'z'},
                     {0, 0,                             0, 0}
             };
-
     /* Parse our options */
 
-    while (1) {
+
+    while (true) {
         int c;
         int opt_index = 0;
         unsigned char keyin[64];
 
-        c = getopt_long(argc, argv, "N:P:S:dehlmn:p:qrs:vz", long_opt,
-                        &opt_index);
+        c = getopt_long(argc, argv, "N:P:S:dehlmn:p:qrs:vz", long_opt, &opt_index);
         if (c == -1) break;
 
         switch (c) {
             case 0:
                 break;
             case 'N':
-                if (!from_hexstring_file((unsigned char *) &config.nonce,
-                                         optarg, 16)) {
-
+                if (!from_hexstring_file((unsigned char *) &config.nonce, optarg, 16)) {
                     fprintf(stderr, "nonce must be 32-byte hex string\n");
                     exit(1);
                 }
@@ -241,7 +233,7 @@ int main(int argc, char *argv[]) {
                 for (i = 0; i < 2; ++i) {
                     int retry = 10;
                     unsigned char ok = 0;
-                    uint64_t *np = (uint64_t *) &config.nonce;
+                    uint64_t *np = (uint64_t * ) & config.nonce;
 
                     while (!ok && retry) ok = _rdrand64_step(&np[i]);
                     if (ok == 0) {
@@ -312,10 +304,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+#endif
+
     /* Can we run SGX? */
 
 #ifndef SGX_HW_SIM
-    sgx_support = get_sgx_support();
+    unsigned sgx_support = get_sgx_support();
     if (sgx_support & SGX_SUPPORT_NO) {
         fprintf(stderr, "This system does not support Intel SGX.\n");
         return 1;
@@ -338,8 +332,7 @@ int main(int argc, char *argv[]) {
 
     status = sgx_create_enclave_search(ENCLAVE_NAME, SGX_DEBUG_FLAG, &token, &updated, &eid, 0);
     if (status != SGX_SUCCESS) {
-        fprintf(stderr, "sgx_create_enclave: %s: %08x\n",
-                ENCLAVE_NAME, status);
+        fprintf(stderr, "sgx_create_enclave: %s: %08x\n", ENCLAVE_NAME, status);
         if (status == SGX_ERROR_ENCLAVE_FILE_ACCESS)
             fprintf(stderr, "Did you forget to set LD_LIBRARY_PATH?\n");
         return 1;
@@ -347,14 +340,7 @@ int main(int argc, char *argv[]) {
 
     /* Are we attesting, or just spitting out a quote? */
 
-    if (config.mode == MODE_ATTEST) {
-        do_attestation(eid, &config);
-//    } else if (config.mode == MODE_EPID || config.mode == MODE_QUOTE) {
-//        do_quote(eid, &config);
-    } else {
-        fprintf(stderr, "Unknown operation mode.\n");
-        return 1;
-    }
+    do_attestation(eid, user_args);
 
     close_logfile(fplog);
 

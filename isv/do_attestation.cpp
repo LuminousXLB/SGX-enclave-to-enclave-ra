@@ -18,7 +18,7 @@ using namespace std;
 extern char debug;
 extern char verbose;
 
-int do_attestation(sgx_enclave_id_t eid, config_t *config) {
+int do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
     sgx_status_t status, sgxrv, pse_status;
     sgx_ra_msg1_t msg1;
     sgx_ra_msg2_t *msg2 = nullptr;
@@ -26,19 +26,17 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
     ra_msg4_t *msg4 = nullptr;
     uint32_t msg0_extended_epid_group_id = 0;
     uint32_t msg3_sz;
-    uint32_t flags = config->flags;
     sgx_ra_context_t ra_ctx = 0xdeadbeef;
     int rv;
     MsgIO *msgio;
-    size_t msg4sz = 0;
-    int enclaveTrusted = NotTrusted; // Not Trusted
-    int b_pse = OPT_ISSET(flags, OPT_PSE);
 
-    if (config->server == nullptr) {
+    int enclaveTrusted = NotTrusted; // Not Trusted
+
+    if (user_args.get_bind_port().empty()) {
         msgio = new MsgIO();
     } else {
         try {
-            msgio = new MsgIO(config->server, (config->port == nullptr) ? "7777" : config->port);
+            msgio = new MsgIO(user_args.get_bind_address().c_str(), user_args.get_bind_port().c_str());
         }
         catch (...) {
             exit(1);
@@ -56,13 +54,8 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
 
     /* Executes an ECALL that runs sgx_ra_init() */
 
-    if (OPT_ISSET(flags, OPT_PUBKEY)) {
-        if (debug) fprintf(stderr, "+++ using supplied public key\n");
-        status = enclave_ra_init(eid, &sgxrv, config->pubkey, b_pse, &ra_ctx, &pse_status);
-    } else {
-        if (debug) fprintf(stderr, "+++ using default public key\n");
-        status = enclave_ra_init_def(eid, &sgxrv, b_pse, &ra_ctx, &pse_status);
-    }
+    if (debug) fprintf(stderr, "+++ using default public key\n");
+    status = enclave_ra_init_def(eid, &sgxrv, user_args.get_client_use_platform_services(), &ra_ctx, &pse_status);
 
     /* Did the ECALL succeed? */
     if (status != SGX_SUCCESS) {
@@ -72,7 +65,7 @@ int do_attestation(sgx_enclave_id_t eid, config_t *config) {
     }
 
     /* If we asked for a PSE session, did that succeed? */
-    if (b_pse) {
+    if (user_args.get_client_use_platform_services()) {
         if (pse_status != SGX_SUCCESS) {
             fprintf(stderr, "pse_session: %08x\n", sgxrv);
             delete msgio;
