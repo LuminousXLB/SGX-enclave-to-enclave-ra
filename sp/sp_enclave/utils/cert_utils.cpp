@@ -247,7 +247,6 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
      */
     att_error = NoErrorInformation;
 
-
     X509 *sign_cert = nullptr; /* The first cert in the list */
 
     X509_STACK *stack = nullptr;
@@ -255,10 +254,7 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
     X509_STORE *store = nullptr;
     vector<X509 *> cert_vec;
 
-
     try {
-
-
         try {
             // Get the certificate chain from the headers
             string cert_chain = response.headers_as_string("X-IASReport-Signing-Certificate");

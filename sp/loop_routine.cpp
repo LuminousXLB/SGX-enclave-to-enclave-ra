@@ -1,7 +1,3 @@
-//
-// Created by ncl on 9/9/19.
-//
-
 #include <error.h>
 #include <key_exchange_message.h>
 #include <sgx_utils/sgx_utils.h>
@@ -49,16 +45,22 @@ void do_attestation(sgx_enclave_id_t enclave_id, MsgIO *msgio, IAS_Connection *i
         ias_error_t ias_error = get_attestation_report(ias, IAS_API_DEF_VERSION, quote_bytes, attestation_response);
         if (ias_error != IAS_OK) {
             eprintf("ias_error = %u\n", ias_error);
-            exit(EXIT_FAILURE);
+            break;
         }
 
+        ra_trust_policy policy;
+        policy.allow_debug = true;
+        policy.allow_configuration_needed = false;
+        policy.isv_min_svn = 1;
+        policy.isv_product_id = 0;
+
         /* Process attestation report, generate message 4 */
-        ra_msg4_t msg4;
-        sgx_status = ecall_sp_proc_msg3(enclave_id, &ret_status, &msg3, msg3_bytes.size(), attestation_response.c_str(),
-                                        &msg4, &att_error);
-        //        status = ecall_do_attestation(global_eid, &sgx_status, *msg01, &msg4, &att_status);
+        vector<uint8_t> msg4_bytes(sizeof(ra_msg4_t));
+        sgx_status = ecall_sp_proc_msg3(enclave_id, &ret_status,
+                                        &msg3, msg3_bytes.size(), attestation_response.c_str(), policy,
+                                        (ra_msg4_t *) &msg4_bytes[0], &att_error);
 
-
+        send_msg4(msg4_bytes);
 
     } while (false);
 

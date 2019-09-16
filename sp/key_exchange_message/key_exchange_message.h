@@ -29,7 +29,6 @@ int recv_msg3(vector<uint8_t> &msg3_buf);
 //void send_msg01(ra_msg01_t *msg01);
 void send_msg2(const vector<uint8_t> &msg2);
 //void send_msg3(sgx_ra_msg3_t *msg3);
-//void send_msg3(ra_msg4_t *msg4);
-
+void send_msg4(const vector<uint8_t> &msg4);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_KEY_EXCHANGE_MESSAGE_H

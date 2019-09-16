@@ -3,6 +3,7 @@ enclave {
     /* from "sgx_tstdc.edl" import *; */
 
     include "protocol.h"
+    include "trust_policy.h"
 
     enum OutputTarget {
         TO_STDOUT = 0,
@@ -13,7 +14,7 @@ enclave {
 	trusted {
 	    public sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_type, ra_msg01_t msg01, [in, size=sigrl_size] const char *sigrl, uint32_t sigrl_size, [out, size=msg2_size] sgx_ra_msg2_t *msg2, uint32_t msg2_size, [out] attestation_error_t *att_error);
 
-        public sgx_status_t ecall_sp_proc_msg3([in, size=msg3_size] const sgx_ra_msg3_t *msg3, uint32_t msg3_size, [in, string] const char *attestation_report, [out] ra_msg4_t *msg4, [out] attestation_error_t *att_error);
+        public sgx_status_t ecall_sp_proc_msg3([in, size=msg3_size] const sgx_ra_msg3_t *msg3, uint32_t msg3_size, [in, string] const char *attestation_report, ra_trust_policy policy, [out] ra_msg4_t *msg4, [out] attestation_error_t *att_error);
 
 	};
 
