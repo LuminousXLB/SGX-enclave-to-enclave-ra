@@ -184,8 +184,8 @@ sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_r
     status = verify_certificate(response, att_error);
     check_sgx_status(status);
 
-    /* verify attestation_report */
-    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "verify attestation_report");
+    /* process attestation_report */
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "process attestation_report");
     json::JSON reportObj = json::JSON::Load(response.content_string());
 
     // TODO: return this for further check
@@ -194,6 +194,7 @@ sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_r
     int rv;
     ocall_fputs(&rv, TO_STDOUT, response.inspect().c_str());
 
+    return SGX_ERROR_SERVICE_UNAVAILABLE;
 }
 
 #if 0
