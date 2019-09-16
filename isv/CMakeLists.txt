@@ -24,7 +24,7 @@ enclave_sign(isv_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(isv_app
-        SRCS isv_app.cpp quote_size.c sgx_detect_linux.c sgx_stub.c
+        SRCS isv_app.cpp quote_size.c sgx_detect/sgx_detect_linux.c sgx_detect/sgx_stub.c config.cpp do_attestation.cpp
         EDL isv_enclave/isv_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 

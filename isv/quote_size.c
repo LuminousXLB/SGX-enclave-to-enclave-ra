@@ -18,7 +18,7 @@ in the License.
 #ifdef _WIN32
 # include <Windows.h>
 #else
-# include "sgx_stub.h"
+# include "sgx_detect/sgx_stub.h"
 #endif
 #include <sgx_urts.h>
 #include "quote_size.h"
