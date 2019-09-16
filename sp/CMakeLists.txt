@@ -45,6 +45,6 @@ target_include_directories(sp_app PRIVATE ias_request)
 target_include_directories(sp_app PRIVATE key_exchange_message)
 
 target_link_libraries(sp_app ias_request key_exchange_message) #  sp_ocalls
-target_link_libraries(sp_app common msgio hexutil logfile fileio base64 byteorder sgx_utils crypto)
+target_link_libraries(sp_app common msgio hexutil logfile fileio base64 sgx_utils crypto)
 
 add_dependencies(sp_app sp_enclave-sign)
