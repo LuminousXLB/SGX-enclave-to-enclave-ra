@@ -121,26 +121,6 @@ int AgentWget::request(string const &url, string const &post, string &sresponse,
         wget_args.emplace_back("--save-headers");
         wget_args.emplace_back("--content-on-error");
         wget_args.emplace_back("--no-http-keep-alive");
-
-//        arg = conn->proxy_server();
-//        // Override environment
-//        if (!arg.empty()) {
-//            string proxy_url = "http://";
-//            proxy_url += arg;
-//            if (conn->proxy_port() != 80) {
-//                proxy_url += ":";
-//                proxy_url += to_string(conn->proxy_port());
-//            }
-//            proxy_url += "/";
-//
-//            setenv("https_proxy", proxy_url.c_str(), 1);
-//        }
-//
-//        if (conn->proxy_mode() == IAS_PROXY_NONE) {
-//            wget_args.emplace_back("--no-proxy");
-//        } else if (conn->proxy_mode() == IAS_PROXY_FORCE) {
-//            unsetenv("no_proxy");
-//        }
     }
 
     /* Set up two pipes for reading from the child */

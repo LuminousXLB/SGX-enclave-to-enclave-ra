@@ -73,7 +73,11 @@ ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vecto
     string content;
 
     vector<string> messages;
-    req->report(payload, content, messages, response, exitcode);
+    ias_error_t err = req->report(payload, content, messages, response, exitcode);
+
+    if (err != IAS_OK) {
+        return err;
+    }
 
     //#define WGET_NO_ERROR       0
     //#define WGET_SERVER_ERROR   8

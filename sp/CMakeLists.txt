@@ -32,7 +32,7 @@ enclave_sign(sp_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(sp_app
-        SRCS sp_app.cpp ias.h ias.cpp sp_ocalls.cpp config.h config.cpp tmp_config.h tmp_config.cpp loop_routine.cpp
+        SRCS sp_app.cpp ias.h ias.cpp sp_ocalls.cpp config.h config.cpp loop_routine.cpp
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 

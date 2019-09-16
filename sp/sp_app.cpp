@@ -24,11 +24,9 @@ in the License.
 #include "fileio.h"
 #include "ias_request.h"
 #include "logfile.h"
-#include "tmp_config.h"
 #include <algorithm>
 #include <sgx_utils/sgx_utils.h>
 #include <crypto.h>
-#include "key_exchange_message.h"
 #include "config.h"
 #include "msgio.h"
 
@@ -59,7 +57,16 @@ int main(int argc, char *argv[]) {
     crypto_init();
 
     /* Initialize our IAS request object */
-    if (!ias_connection_init(user_args)) {
+    try {
+        ias = new IAS_Connection(
+                (user_args.get_query_ias_production()) ? IAS_SERVER_PRODUCTION : IAS_SERVER_DEVELOPMENT,
+                0,
+                user_args.get_ias_primary_subscription_key(),
+                user_args.get_ias_secondary_subscription_key()
+        );
+    }
+    catch (...) {
+        eprintf("exception while creating IAS request object\n");
         exit(EXIT_FAILURE);
     }
 

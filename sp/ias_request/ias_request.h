@@ -19,7 +19,7 @@ in the License.
 #define __IASREQUEST_H
 
 #include <sys/types.h>
-#include <inttypes.h>
+#include <cinttypes>
 #include <openssl/x509.h>
 #include "agent.h"
 #include "httpparser/response.h"

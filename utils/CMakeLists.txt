@@ -8,7 +8,7 @@ add_library(common common.h common.cpp)
 add_library(logfile logfile.h logfile.c)
 
 add_library(hexutil hexutil.h hexutil.c)
-add_library(base64 base64.h base64.c ../sp/tmp_config.cpp ../sp/tmp_config.h socket_log.cpp socket_log.h)
+add_library(base64 base64.h base64.c socket_log.cpp socket_log.h)
 #add_library(json json.hpp)
 
 add_library(byteorder byteorder.h byteorder.c)

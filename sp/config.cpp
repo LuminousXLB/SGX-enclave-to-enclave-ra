@@ -141,7 +141,7 @@ sgx_spid_t UserArgs::get_spid() const {
 
 sgx_quote_sign_type_t UserArgs::get_quote_type() const {
     // [uint16] [DEFAULT = 0]
-    if(search_numeric("QUOTE_TYPE", 0)) {
+    if (search_numeric("QUOTE_TYPE", 0) == 0) {
         return sgx_quote_sign_type_t::SGX_UNLINKABLE_SIGNATURE;
     } else {
         return sgx_quote_sign_type_t::SGX_LINKABLE_SIGNATURE;
