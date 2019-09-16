@@ -19,13 +19,14 @@ in the License.
 #include <sys/types.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <cppcodec/hex_default_lower.hpp>
 
 static char *_hex_buffer = NULL;
 static size_t _hex_buffer_size = 0;
 
 int from_hexstring(unsigned char *dest, const void *vsrc, size_t len) {
     size_t i;
-    const unsigned char *src = (const unsigned char *) vsrc;
+    const char *src = (const char *) vsrc;
 
     for (i = 0; i < len; ++i) {
         unsigned int v;
@@ -58,7 +59,7 @@ const char _hextable[] = "0123456789abcdef";
 const char *hexstring(const void *vsrc, size_t len) {
     size_t i, bsz;
     const unsigned char *src = (const unsigned char *) vsrc;
-    unsigned char *bp;
+    char *bp;
 
     bsz = len * 2 + 1;    /* Make room for NULL byte */
     if (bsz >= _hex_buffer_size) {
