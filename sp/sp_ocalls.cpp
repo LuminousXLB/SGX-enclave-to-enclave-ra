@@ -11,10 +11,12 @@ using namespace std;
 
 int ocall_fputs(OutputTarget target, const char *str) {
     switch (target) {
-        TO_STDOUT:
+        case TO_STDOUT:
             return fputs(str, stdout);
-        TO_STDERR:
+        case TO_STDERR:
             return fputs(str, stderr);
+        case TO_APPLOG:
+            return fputs(str, fplog);
         default:
             return fputs(str, fplog);
     }

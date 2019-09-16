@@ -38,8 +38,6 @@ using namespace std;
 /* A 1MB buffer should be sufficient for demo purposes */
 #define MSGIO_BUFFER_SZ    1024*1024
 
-#define DEFAULT_PORT    "7777"        // A C string for getaddrinfo()
-
 typedef int SOCKET;
 
 class MsgIO {

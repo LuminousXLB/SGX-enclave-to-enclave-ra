@@ -379,6 +379,8 @@ if (SGX_FOUND)
         add_executable(${target} ${SGX_SRCS} ${EDL_U_SRCS})
         set_target_properties(${target} PROPERTIES COMPILE_FLAGS ${APP_CXX_FLAGS})
         target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+        message(STATUS "DEBUG: CMAKE_CURRENT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}")
+
         target_link_libraries(${target} "${SGX_COMMON_CFLAGS} \
                                          -L${SGX_LIBRARY_PATH} \
                                          -L${SGXSSL_LIBRARY_DIR} \

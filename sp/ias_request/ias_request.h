@@ -99,11 +99,9 @@ public:
 
 private:
     string c_server;
+    typedef array<char, IAS_SUBSCRIPTION_KEY_SIZE> subkey_t;
 
-    typedef char subkey_t[IAS_SUBSCRIPTION_KEY_SIZE];
-
-    subkey_t subscription_key_enc[SubscriptionKeyID::Last]{};
-    subkey_t subscription_key_xor[SubscriptionKeyID::Last]{};
+    subkey_t subscription_key[SubscriptionKeyID::Last]{};
 
     string c_ca_file;
     string c_proxy_server;
@@ -115,13 +113,12 @@ private:
     Agent *c_agent;
     string c_agent_name;
 
-    int setSubscriptionKey(SubscriptionKeyID id, char *subscriptionKey);
 
     SubscriptionKeyID currentKeyID = SubscriptionKeyID::Primary;
 
 public:
 
-    IAS_Connection(int server, uint32_t flags, char *subscriptionKey, char *secSubscriptionKey);
+    IAS_Connection(int server, uint32_t flags, const subkey_t &subscriptionKey, const subkey_t &secSubscriptionKey);
 
     ~IAS_Connection();
 
@@ -135,17 +132,17 @@ public:
 
     void SetSubscriptionKeyID(SubscriptionKeyID id) { currentKeyID = id; }
 
-    int proxy(const char *server, uint16_t port);
+//    int proxy(const char *server, uint16_t port);
 
-    void proxy_mode(int mode) { c_proxy_mode = mode; }
+//    void proxy_mode(int mode) {  = mode; }
 
-    int proxy_mode() { return c_proxy_mode; }
+//    int proxy_mode() { return c_proxy_mode; }
 
-    string proxy_server() { return c_proxy_server; }
+//    string proxy_server() { return c_proxy_server; }
 
-    uint16_t proxy_port() { return c_proxy_port; }
+//    uint16_t proxy_port() { return c_proxy_port; }
 
-    string proxy_url();
+//    string proxy_url();
 
 
     // void ca_bundle(const char *file) { c_ca_file = file; }

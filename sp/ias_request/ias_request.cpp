@@ -57,7 +57,9 @@ void ias_list_agents(FILE *fp) {
 #endif
 }
 
-IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscriptionKey, char *secSubscriptionKey) {
+IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, const subkey_t &priSubscriptionKey,
+                               const subkey_t &secSubscriptionKey) {
+
     c_server = ias_servers[server_idx];
     c_flags = flags;
     c_server_port = IAS_PORT;
@@ -66,8 +68,9 @@ IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscrip
     c_agent_name = "";
     c_proxy_port = 80;
     c_store = nullptr;
-    setSubscriptionKey(SubscriptionKeyID::Primary, priSubscriptionKey);
-    setSubscriptionKey(SubscriptionKeyID::Secondary, secSubscriptionKey);
+
+    subscription_key[SubscriptionKeyID::Primary] = priSubscriptionKey;
+    subscription_key[SubscriptionKeyID::Secondary] = secSubscriptionKey;
 }
 
 IAS_Connection::~IAS_Connection() {
@@ -83,88 +86,46 @@ int IAS_Connection::agent(const char *agent_name) {
     return 0;
 }
 
-int IAS_Connection::proxy(const char *server, uint16_t port) {
-    int rv = 1;
-    try {
-        c_proxy_server = server;
-    }
-    catch (...) {
-        rv = 0;
-    }
-    c_proxy_port = port;
+//int IAS_Connection::proxy(const char *server, uint16_t port) {
+//    int rv = 1;
+//    try {
+//        c_proxy_server = server;
+//    }
+//    catch (...) {
+//        rv = 0;
+//    }
+//    c_proxy_port = port;
+//
+//    c_proxy_mode = IAS_PROXY_FORCE;
+//
+//    return rv;
+//}
+//
+//string IAS_Connection::proxy_url() {
+//    string proxy_url;
+//
+//    if (c_proxy_server.empty())
+//        return "";
+//
+//    proxy_url = "http://" + c_proxy_server;
+//
+//    if (c_proxy_port != 80) {
+//        proxy_url += ":";
+//        proxy_url += to_string(c_proxy_port);
+//    }
+//
+//    return proxy_url;
+//}
 
-    c_proxy_mode = IAS_PROXY_FORCE;
-
-    return rv;
-}
-
-string IAS_Connection::proxy_url() {
-    string proxy_url;
-
-    if (c_proxy_server.empty())
-        return "";
-
-    proxy_url = "http://" + c_proxy_server;
-
-    if (c_proxy_port != 80) {
-        proxy_url += ":";
-        proxy_url += to_string(c_proxy_port);
-    }
-
-    return proxy_url;
-}
-
-// Encrypt the subscription key while its stored in memory
-int IAS_Connection::setSubscriptionKey(SubscriptionKeyID id, char *subscriptionKeyPlainText) {
-    memset(subscription_key_enc[id], 0, sizeof(subscription_key_enc[id]));
-    memset(subscription_key_xor[id], 0, sizeof(subscription_key_xor[id]));
-
-    if (subscriptionKeyPlainText == nullptr || (strlen(subscriptionKeyPlainText) != IAS_SUBSCRIPTION_KEY_SIZE) ||
-        (id == SubscriptionKeyID::Last)) {
-        if (debug)
-            eprintf("Error Setting subscriptionKey\n");
-        return 0;
-    }
-
-    // Create Random one time pad
-    RAND_bytes((unsigned char *) subscription_key_xor[id], (int) sizeof(subscription_key_xor[id]));
-
-    // XOR Subscription Key with One Time Pad to create an encrypted key
-    for (int i = 0; i < IAS_SUBSCRIPTION_KEY_SIZE; i++)
-        subscription_key_enc[id][i] = (unsigned char) subscriptionKeyPlainText[i] ^ subscription_key_xor[id][i];
-
-    if (debug && verbose) {
-        eprintf("\n+++ IAS Subscription Key[%d]:\t'%s'\n", id, subscriptionKeyPlainText);
-        eprintf("+++ IAS Subscription Key[%d] (Hex):\t%s\n", id,
-                hexstring(subscriptionKeyPlainText, IAS_SUBSCRIPTION_KEY_SIZE));
-        eprintf("+++ One-time pad:\t\t\t%s\n", hexstring(subscription_key_xor[id], sizeof(subscription_key_xor[id])));
-        eprintf("+++ Encrypted Subscription Key[%d]:\t%s\n\n", id,
-                hexstring(subscription_key_enc[id], sizeof(subscription_key_enc[id])));
-    }
-
-    // zero the original subscription key in memory
-    memset(subscriptionKeyPlainText, 0, IAS_SUBSCRIPTION_KEY_SIZE);
-
-    return 1;
-}
 
 // Decrypt then return the subscription key
 string IAS_Connection::getSubscriptionKey() {
-    char keyBuff[IAS_SUBSCRIPTION_KEY_SIZE + 1];
-    memset(keyBuff, 0, IAS_SUBSCRIPTION_KEY_SIZE + 1);
 
-    for (int i = 0; i < IAS_SUBSCRIPTION_KEY_SIZE; i++)
-        keyBuff[i] = (subscription_key_enc[currentKeyID][i] ^ subscription_key_xor[currentKeyID][i]);
-
-    string subscriptionKeyBuff(keyBuff);
+    string subscriptionKeyBuff(subscription_key[currentKeyID].data(),
+                               subscription_key[currentKeyID].data() + IAS_SUBSCRIPTION_KEY_SIZE);
 
     if (debug) {
         eprintf("\n+++ Reconstructed Subscription Key:\t'%s'\n", subscriptionKeyBuff.c_str());
-        eprintf("+++ IAS Subscription Key (Hex):\t\t%s\n", hexstring(keyBuff, IAS_SUBSCRIPTION_KEY_SIZE));
-        eprintf("+++ One-time pad:\t\t\t%s\n",
-                hexstring(subscription_key_xor[currentKeyID], sizeof(subscription_key_xor[currentKeyID])));
-        eprintf("+++ Encrypted SubscriptionKey:\t\t%s\n\n",
-                hexstring(subscription_key_enc[currentKeyID], sizeof(subscription_key_enc[currentKeyID])));
     }
 
     return subscriptionKeyBuff;
@@ -407,7 +368,7 @@ ias_error_t IAS_Request::verify_certificate(const Response &response) {
     // The signing cert is valid, so extract and verify the signature
 
     sigstr = response.headers_as_string("X-IASReport-Signature");
-    if (sigstr == "") {
+    if (sigstr.empty()) {
         eprintf("Header X-IASReport-Signature not found\n");
         status = IAS_BAD_SIGNATURE;
         goto cleanup;
@@ -423,7 +384,7 @@ ias_error_t IAS_Request::verify_certificate(const Response &response) {
     if (verbose) {
         edividerWithText("Report Signature");
         print_hexstring(stderr, sig, sigsz);
-        if (fplog != NULL)
+        if (fplog != nullptr)
             print_hexstring(fplog, sig, sigsz);
         eprintf("\n");
         edivider();
@@ -440,7 +401,7 @@ ias_error_t IAS_Request::verify_certificate(const Response &response) {
     if (debug)
         eprintf("+++ Extracting public key from signing cert\n");
     pkey = X509_get_pubkey(sign_cert);
-    if (pkey == NULL) {
+    if (pkey == nullptr) {
         eprintf("Could not extract public key from certificate\n");
         status = IAS_INTERNAL_ERROR;
         goto cleanup;

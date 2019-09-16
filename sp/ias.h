@@ -9,7 +9,5 @@ ias_error_t get_sigrl(IAS_Connection *ias, int version, const sgx_epid_group_id_
 
 ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote, string &response);
 
-//ias_error_t get_attestation_report(IAS_Connection *ias, int version, const vector<uint8_t> &quote,
-//                                   string &content, vector<string> &messages);
 
 #endif //SGX_ENCLAVE_TO_ENCLAVE_RA_IAS_H

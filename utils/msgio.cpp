@@ -70,8 +70,7 @@ MsgIO::MsgIO(const char *peer, const char *port) {
 
     for (addr = addrs; addr != nullptr; addr = addr->ai_next) {
         proto = addr->ai_family;
-        s = socket(addr->ai_family, addr->ai_socktype,
-                   addr->ai_protocol);
+        s = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
         if (s == -1) {
             perror("socket");
             continue;
