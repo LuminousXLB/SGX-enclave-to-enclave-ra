@@ -220,6 +220,8 @@ if (SGX_FOUND)
         set_target_properties(${target} PROPERTIES COMPILE_FLAGS ${ENCLAVE_CXX_FLAGS})
         target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
+        message(STATUS "${target}: [target_include_directories] ${CMAKE_CURRENT_BINARY_DIR}")
+
         set(TLIB_LIST "")
         foreach (TLIB ${SGX_TRUSTED_LIBS})
             string(APPEND TLIB_LIST "$<TARGET_FILE:${TLIB}> ")

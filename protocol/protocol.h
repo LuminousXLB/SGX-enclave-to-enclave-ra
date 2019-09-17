@@ -23,7 +23,6 @@ in the License.
 #include <sgx_key_exchange.h>
 #include "error.h"
 
-
 typedef struct _ra_msg01_t_struct {
     uint32_t msg0_extended_epid_group_id;
     sgx_ra_msg1_t msg1;
@@ -45,6 +44,7 @@ typedef struct _ra_msg4_struct {
     attestation_status_t status;
     sgx_platform_info_t platformInfoBlob;
 } ra_msg4_t;
+
 
 #endif
 

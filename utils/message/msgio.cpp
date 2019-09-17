@@ -16,18 +16,15 @@ in the License.
 */
 
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <sgx_urts.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-//#include <exception>
 #include <stdexcept>
 #include <string>
 #include <vector>
-//#include "hexutil.h"
 #include "msgio.h"
 #include "../common.h"
 #include <cppcodec/hex_lower.hpp>
