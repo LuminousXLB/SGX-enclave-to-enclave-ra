@@ -29,7 +29,7 @@ in the License.
 #include <sgx_utils/sgx_utils.h>
 #include <message/message.h>
 #include "isv_enclave_u.h"
-#include "ISV_Attestation.h"
+#include "isv_attestation.h"
 #include "config.h"
 #include "common.h"
 #include "logfile.h"

@@ -19,20 +19,19 @@ public:
 
 };
 
-class ISV_Attestation {
+class isv_attestation {
     sgx_enclave_id_t eid;
     bool client_use_platform_services;
-    sgx_ra_context_t ra_ctx;
+    sgx_ra_context_t ra_ctx = 0xdeadbeef;
 
-    uint32_t msg0;
+    uint32_t msg0 = 0;
     vector<uint8_t> msg1_bytes;
     vector<uint8_t> msg3_bytes;
 
 public:
-    ISV_Attestation(sgx_enclave_id_t enclave_id, const UserArgs &user_args) :
+    isv_attestation(sgx_enclave_id_t enclave_id, const UserArgs &user_args) :
             eid(enclave_id),
             client_use_platform_services(user_args.get_client_use_platform_services()) {
-//        if (debug) fprintf(stderr, "+++ using default public key\n");
         /*
          * WARNING! Normally, the public key would be hardcoded into the
          * enclave, not passed in as a parameter. Hardcoding prevents
@@ -44,6 +43,7 @@ public:
 
         sgx_status_t sgx_status, ret_status, pse_status;
 
+//        if (debug) fprintf(stderr, "+++ using default public key\n");
         sgx_status = enclave_ra_init_def(eid, &ret_status, client_use_platform_services, &ra_ctx, &pse_status);
 
         /* Did the ECALL succeed? */
@@ -64,7 +64,7 @@ public:
         }
     }
 
-    ~ISV_Attestation() {
+    ~isv_attestation() {
         sgx_status_t ret_status;
         enclave_ra_close(eid, &ret_status, ra_ctx);
     }

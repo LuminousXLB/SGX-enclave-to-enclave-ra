@@ -11,7 +11,7 @@
 #include "hexutil.h"
 #include <vector>
 #include "config.h"
-#include "ISV_Attestation.h"
+#include "isv_attestation.h"
 
 using namespace std;
 
@@ -36,7 +36,7 @@ bool isv_do_attestation(sgx_enclave_id_t eid, MsgIO *msgio, const UserArgs &user
 
     /* Executes an ECALL that runs sgx_ra_init(), generate ra_context */
 
-    ISV_Attestation isv_attestation_instance(eid, user_args);
+    isv_attestation isv_attestation_instance(eid, user_args);
 
     /* Generate msg0 */
 
