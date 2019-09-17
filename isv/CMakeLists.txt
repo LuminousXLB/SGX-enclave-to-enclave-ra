@@ -28,5 +28,5 @@ add_untrusted_executable(isv_app
         EDL isv_enclave/isv_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 
-target_link_libraries(isv_app sgx_utils msgio common fileio logfile hexutil base64 crypto dl)
+target_link_libraries(isv_app sgx_utils message common fileio logfile hexutil base64 crypto dl)
 add_dependencies(isv_app isv_enclave-sign)

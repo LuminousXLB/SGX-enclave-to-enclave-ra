@@ -1,11 +1,11 @@
 #include <error.h>
-#include <key_exchange_message.h>
+#include <message/message.h>
 #include <sgx_utils/sgx_utils.h>
 #include "sp_enclave_u.h"
 #include "ias.h"
 #include "config.h"
 
-void do_attestation(sgx_enclave_id_t enclave_id, IAS_Connection *ias, const UserArgs &user_args) {
+void sp_do_attestation(sgx_enclave_id_t enclave_id, MsgIO *msgio, IAS_Connection *ias, const UserArgs &user_args) {
     sgx_status_t ret_status = SGX_SUCCESS;
     sgx_status_t sgx_status = SGX_SUCCESS;
     attestation_error_t att_error = NoErrorInformation;
@@ -15,7 +15,7 @@ void do_attestation(sgx_enclave_id_t enclave_id, IAS_Connection *ias, const User
         vector<uint8_t> msg01_bytes;
 
         eprintf(">>> Receiving Msg 01\n");
-        recv_msg01(msg01_bytes);
+        recv_msg01(msgio, msg01_bytes);
 
         const auto &msg01 = *(const ra_msg01_t *) msg01_bytes.data();
 
@@ -52,12 +52,12 @@ void do_attestation(sgx_enclave_id_t enclave_id, IAS_Connection *ias, const User
 
         /**************** Send message 2 ****************/
         eprintf(">>> Sending Msg2\n");
-        send_msg2(msg2_bytes);
+        send_msg2(msgio, msg2_bytes);
 
         /**************** Read message 3 ****************/
         vector<uint8_t> msg3_bytes;
         eprintf(">>> Receiving Msg3\n");
-        recv_msg3(msg3_bytes);
+        recv_msg3(msgio, msg3_bytes);
 
         const sgx_ra_msg3_t &msg3 = *(sgx_ra_msg3_t *) msg3_bytes.data();
 
@@ -97,7 +97,7 @@ void do_attestation(sgx_enclave_id_t enclave_id, IAS_Connection *ias, const User
         }
 
         eprintf(">>> Sending Msg4\n");
-        send_msg4(msg4_bytes);
+        send_msg4(msgio, msg4_bytes);
 
     } while (false);
 

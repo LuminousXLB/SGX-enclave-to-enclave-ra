@@ -29,7 +29,7 @@ in the License.
 #include <vector>
 //#include "hexutil.h"
 #include "msgio.h"
-#include "common.h"
+#include "../common.h"
 #include <cppcodec/hex_lower.hpp>
 
 using namespace std;

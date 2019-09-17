@@ -1,4 +1,5 @@
-#include "key_exchange_message.h"
+#include "common.h"
+#include "logfile.h"
 #include "sp_enclave_u.h"
 
 using namespace std;

@@ -28,13 +28,14 @@ in the License.
 #include <sgx_utils/sgx_utils.h>
 #include <crypto.h>
 #include "config.h"
-#include "msgio.h"
+#include "message/msgio.h"
 
 using namespace std;
 
 
 void cleanup_and_exit(int signo);
 
+void sp_do_attestation(sgx_enclave_id_t enclave_id, MsgIO *msgio, IAS_Connection *ias, const UserArgs &user_args);
 
 sgx_enclave_id_t global_eid;
 char debug = 1;
@@ -76,7 +77,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-#ifndef _WIN32
     /*
      * Install some rudimentary signal handlers. We just want to make
      * sure we gracefully shutdown the listen socket before we exit
@@ -92,7 +92,6 @@ int main(int argc, char *argv[]) {
     if (sigaction(SIGINT, &sig_act, nullptr) == -1) perror("sigaction: SIGHUP");
     if (sigaction(SIGTERM, &sig_act, nullptr) == -1) perror("sigaction: SIGHUP");
     if (sigaction(SIGQUIT, &sig_act, nullptr) == -1) perror("sigaction: SIGHUP");
-#endif
 
 //    Launch the enclave
     if (initialize_enclave(&global_eid, "sp_enclave.token", "sp_enclave.signed.so") < 0) {
@@ -103,9 +102,7 @@ int main(int argc, char *argv[]) {
     /* If we're running in server mode, we'll block here.  */
 
     while (msgio->server_loop()) {
-        void do_attestation(sgx_enclave_id_t enclave_id, IAS_Connection *ias, const UserArgs &user_args);
-
-        do_attestation(global_eid, ias, user_args);
+        sp_do_attestation(global_eid, msgio, ias, user_args);
     }
 
     crypto_destroy();

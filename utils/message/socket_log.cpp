@@ -7,8 +7,8 @@
 #include <zconf.h>
 #include "socket_log.h"
 #include <cstdlib>
-#include "common.h"
-#include "hexutil.h"
+#include "../common.h"
+#include "../hexutil.h"
 
 
 /*

@@ -1,10 +1,10 @@
-#include "key_exchange_message.h"
+#include "message.h"
 #include <vector>
 #include <cstring>
 
 using namespace std;
 
-int recv_msg01(vector<uint8_t> &msg01_buf) {
+int recv_msg01(MsgIO *msgio, vector<uint8_t> &msg01_buf) {
     fprintf(stderr, "Waiting for msg0||msg1\n");
 
     int rv = msgio->read(msg01_buf);
@@ -39,7 +39,22 @@ int recv_msg01(vector<uint8_t> &msg01_buf) {
     return rv;
 }
 
-int recv_msg3(vector<uint8_t> &msg3_buf) {
+
+void send_msg2(MsgIO *msgio, const vector<uint8_t> &msg2) {
+    if (verbose) {
+        dividerWithText(stderr, "Copy/Paste Msg2 Below to Client");
+    }
+    dividerWithText(fplog, "Msg2 (send to Client)");
+
+    msgio->send(msg2);
+    fsend_msg(fplog, msg2.data(), msg2.size());
+
+    if (verbose) {
+        edivider();
+    }
+}
+
+int recv_msg3(MsgIO *msgio, vector<uint8_t> &msg3_buf) {
     fprintf(stderr, "Waiting for msg3\n");
 
     int rv = msgio->read(msg3_buf);
@@ -63,7 +78,7 @@ int recv_msg3(vector<uint8_t> &msg3_buf) {
         eprintf("msg3.g_a.gy              = %s\n", hexstring(&msg3->g_a.gy, sizeof(msg3->g_a.gy)));
         eprintf("msg3.ps_sec_prop         = %s\n", hexstring(&msg3->ps_sec_prop, sizeof(msg3->ps_sec_prop)));
 
-        sgx_quote_t *q = (sgx_quote_t *) msg3->quote;
+        auto *q = (sgx_quote_t *) msg3->quote;
         eprintf("msg3.quote.version       = %s\n", hexstring(&q->version, sizeof(uint16_t)));
         eprintf("msg3.quote.sign_type     = %s\n", hexstring(&q->sign_type, sizeof(uint16_t)));
         eprintf("msg3.quote.epid_group_id = %s\n", hexstring(&q->epid_group_id, sizeof(sgx_epid_group_id_t)));
@@ -80,4 +95,18 @@ int recv_msg3(vector<uint8_t> &msg3_buf) {
     }
 
     return rv;
+}
+
+void send_msg4(MsgIO *msgio, const vector<uint8_t> &msg4) {
+    if (verbose) {
+        dividerWithText(stderr, "Copy/Paste Msg4 Below to Client");
+    }
+    dividerWithText(fplog, "Msg4 (send to Client)");
+
+    msgio->send(msg4);
+    fsend_msg(fplog, msg4.data(), msg4.size());
+
+    if (verbose) {
+        edivider();
+    }
 }

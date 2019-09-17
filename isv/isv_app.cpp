@@ -29,7 +29,6 @@ in the License.
 #include <sgx_utils/sgx_utils.h>
 #include "isv_enclave_u.h"
 #include "config.h"
-#include "do_attestation.h"
 #include "common.h"
 #include "logfile.h"
 
@@ -39,6 +38,7 @@ using namespace std;
 char debug = 0;
 char verbose = 0;
 
+int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args);
 
 int main(int argc, char *argv[]) {
     const UserArgs user_args = UserArgs();
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    do_attestation(global_eid, user_args);
+    isv_do_attestation(global_eid, user_args);
 
     close_logfile(fplog);
 

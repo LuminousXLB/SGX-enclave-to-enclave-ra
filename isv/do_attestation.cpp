@@ -2,9 +2,9 @@
 // Created by ncl on 16/9/19.
 //
 
-#include "do_attestation.h"
 #include "protocol.h"
-#include "msgio.h"
+#include "message/msgio.h"
+#include "message/message.h"
 #include "isv_enclave_u.h"
 #include "common.h"
 #include "logfile.h"
@@ -12,13 +12,15 @@
 #include <sgx_uae_service.h>
 #include <sgx_ukey_exchange.h>
 #include <vector>
+#include <sgx_urts.h>
+#include "config.h"
 
 using namespace std;
 
 extern char debug;
 extern char verbose;
 
-int do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
+int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
     sgx_status_t status, sgxrv, pse_status;
     sgx_ra_msg1_t msg1;
     sgx_ra_msg2_t *msg2 = nullptr;
@@ -89,6 +91,18 @@ int do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
         delete msgio;
         return 1;
     }
+
+    /* Generate msg1 */
+
+    status = sgx_ra_get_msg1(ra_ctx, eid, sgx_ra_get_ga, &msg1);
+    if (status != SGX_SUCCESS) {
+        enclave_ra_close(eid, &sgxrv, ra_ctx);
+        fprintf(stderr, "sgx_ra_get_msg1: %08x\n", status);
+        fprintf(fplog, "sgx_ra_get_msg1: %08x\n", status);
+        delete msgio;
+        return 1;
+    }
+
     if (verbose) {
         dividerWithText(stderr, "Msg0 Details");
         dividerWithText(fplog, "Msg0 Details");
@@ -100,17 +114,6 @@ int do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
         fprintf(fplog, "\n");
         divider(stderr);
         divider(fplog);
-    }
-
-    /* Generate msg1 */
-
-    status = sgx_ra_get_msg1(ra_ctx, eid, sgx_ra_get_ga, &msg1);
-    if (status != SGX_SUCCESS) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
-        fprintf(stderr, "sgx_ra_get_msg1: %08x\n", status);
-        fprintf(fplog, "sgx_ra_get_msg1: %08x\n", status);
-        delete msgio;
-        return 1;
     }
 
     if (verbose) {

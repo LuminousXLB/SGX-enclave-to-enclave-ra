@@ -39,12 +39,10 @@ add_untrusted_executable(sp_app
 #target_compile_options(sp_app PRIVATE -Wno-pointer-to-int-cast)
 
 add_subdirectory(ias_request)
-add_subdirectory(key_exchange_message)
 
 target_include_directories(sp_app PRIVATE ias_request)
-target_include_directories(sp_app PRIVATE key_exchange_message)
 
-target_link_libraries(sp_app ias_request key_exchange_message) #  sp_ocalls
-target_link_libraries(sp_app common msgio hexutil logfile fileio base64 sgx_utils crypto)
+target_link_libraries(sp_app ias_request) #  sp_ocalls
+target_link_libraries(sp_app common message hexutil logfile fileio base64 sgx_utils crypto)
 
 add_dependencies(sp_app sp_enclave-sign)

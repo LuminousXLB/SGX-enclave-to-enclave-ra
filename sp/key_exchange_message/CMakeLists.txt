@@ -1,1 +1,0 @@
-add_library(key_exchange_message key_exchange_message.h message_receive.cpp message_send.cpp)
