@@ -242,7 +242,7 @@ void client_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
                            userArgs.get_query_ias_production());
     AgentWget agent(userArgs.get_sgx_verbose(), userArgs.get_sgx_debug());
 
-    
+
     if (userArgs.get_sgx_debug()) {
         fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
     }
