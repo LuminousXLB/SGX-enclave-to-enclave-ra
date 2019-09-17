@@ -56,6 +56,6 @@ add_untrusted_executable(App_p2p
 add_subdirectory(p2p_app/ias_request)
 
 target_include_directories(App_p2p PRIVATE ias_request)
-target_link_libraries(App_p2p common message hexutil logfile fileio base64 sgx_utils)
+target_link_libraries(App_p2p common message hexutil logfile fileio sgx_utils)
 
 add_dependencies(App_p2p Enclave_p2p-sign)
