@@ -60,7 +60,16 @@ sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_ty
 
 sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, const char *attestation_report,
                                 ra_trust_policy policy, ra_msg4_t *msg4, attestation_error_t *att_error) {
-    if (!msg3 || !attestation_report || !msg4 || !att_error) {
+
+    if (!attestation_report || !att_error) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+
+    if (!msg3 ) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+
+    if (!msg4 ) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
 

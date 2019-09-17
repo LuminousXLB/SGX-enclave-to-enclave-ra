@@ -212,15 +212,3 @@ bool UserArgs::get_sgx_debug() const {
     // [0, 1] [DEFAULT = 0]
     return search_numeric<uint16_t>("SGX_DEBUG", false);
 }
-
-//ra_trust_policy UserArgs::get_trust_policy() const {
-//    ra_trust_policy policy;
-//
-//    policy.allow_debug = get_policy_allow_debug();
-//    policy.allow_configuration_needed = get_policy_allow_configuration_needed();
-//    policy.isv_product_id = get_policy_product_id();
-//    policy.isv_min_svn = get_policy_isv_min_svn();
-//    memcpy(&policy.mrsigner, get_policy_mrsigner().data(), sizeof(sgx_measurement_t));
-//
-//    return policy;
-//}

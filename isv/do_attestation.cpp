@@ -36,15 +36,15 @@ bool isv_do_attestation(sgx_enclave_id_t eid, MsgIO *msgio, const UserArgs &user
 
     /* Executes an ECALL that runs sgx_ra_init(), generate ra_context */
 
-    isv_attestation isv_attestation_instance(eid, user_args);
+    isv_att_enclave isv_att_enclave_instance(eid, user_args);
 
     /* Generate msg0 */
 
-    uint32_t msg0 = isv_attestation_instance.generate_msg0();
+    uint32_t msg0 = isv_att_enclave_instance.generate_msg0();
 
     /* Generate msg1 */
 
-    const vector<uint8_t> &msg1_bytes = isv_attestation_instance.generate_msg1();
+    const vector<uint8_t> &msg1_bytes = isv_att_enclave_instance.generate_msg1();
 
     if (verbose) {
         const sgx_ra_msg1_t &msg1 = *(const sgx_ra_msg1_t *) msg1_bytes.data();
@@ -167,7 +167,7 @@ bool isv_do_attestation(sgx_enclave_id_t eid, MsgIO *msgio, const UserArgs &user
 
     /* Process Msg2, Get Msg3  */
     /* object msg3 is malloc'd by SGX SDK, so remember to free when finished */
-    const vector<uint8_t> &msg3_bytes = isv_attestation_instance.generate_msg3(msg2_bytes);
+    const vector<uint8_t> &msg3_bytes = isv_att_enclave_instance.generate_msg3(msg2_bytes);
 
     if (debug) {
         fprintf(stderr, "+++ msg3_size = %zu\n", msg3_bytes.size());

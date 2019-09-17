@@ -8,18 +8,12 @@
 #include <string>
 #include <utility>
 #include "config.h"
+#include "sgx_utils/sgx_exception.h"
 
 using namespace std;
 
-class sgx_error : public exception {
-    sgx_status_t status;
-    string where;
-public:
-    sgx_error(string where, sgx_status_t status) : where(std::move(where)), status(status) {}
 
-};
-
-class isv_attestation {
+class isv_att_enclave {
     sgx_enclave_id_t eid;
     bool client_use_platform_services;
     sgx_ra_context_t ra_ctx = 0xdeadbeef;
@@ -29,7 +23,7 @@ class isv_attestation {
     vector<uint8_t> msg3_bytes;
 
 public:
-    isv_attestation(sgx_enclave_id_t enclave_id, const UserArgs &user_args) :
+    isv_att_enclave(sgx_enclave_id_t enclave_id, const UserArgs &user_args) :
             eid(enclave_id),
             client_use_platform_services(user_args.get_client_use_platform_services()) {
         /*
@@ -64,7 +58,7 @@ public:
         }
     }
 
-    ~isv_attestation() {
+    ~isv_att_enclave() {
         sgx_status_t ret_status;
         enclave_ra_close(eid, &ret_status, ra_ctx);
     }
