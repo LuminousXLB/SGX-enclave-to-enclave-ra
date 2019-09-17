@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 set(EDL_SEARCH_PATHS sp_enclave)
 
-set(SP_ENCLAVE_UTILS_IO sp_enclave/utils/io.h sp_enclave/utils/io.cpp)
+set(SP_ENCLAVE_UTILS_IO sp_enclave/utils/io.h sp_enclave/utils/io.cpp sp_enclave/utils/base64.h sp_enclave/utils/base64.cpp)
 set(SP_ENCLAVE_UTILS_CRYPTO sp_enclave/utils/crypto_utils.h sp_enclave/utils/crypto_utils.cpp)
 add_library(SP_ENCLAVE_UTILS_CERT_X509_HOOK sp_enclave/utils/x509_vfy/x509_vfy.c sp_enclave/utils/x509_vfy/x509_vfy.h)
 set(SP_ENCLAVE_UTILS_CERT sp_enclave/utils/cert_utils.h sp_enclave/utils/cert_utils.cpp)
@@ -15,9 +15,8 @@ add_enclave_library(sp_enclave
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
-target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR} sp_enclave/utils)
-target_link_libraries(sp_enclave SP_ENCLAVE_UTILS_CERT_X509_HOOK)
-target_link_libraries(sp_enclave -Wl,--whole-archive ${SGX_tSGXSSL} -Wl,--no-whole-archive ${SGX_tSGXSSL_CRYPTO} sgx_tstdc sgx_trts pthread)
+target_include_directories(sp_enclave PRIVATE ${SGXSSL_INCLUDE_DIR})
+include_directories(sp_enclave)
 
 # sign the enclave, according to configurations one-step or two-step signing will be performed.
 # default one-step signing output enclave name is target.signed.so, change it with OUTPUT option.
@@ -34,19 +33,17 @@ enclave_sign(sp_enclave
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(sp_app
-        SRCS sp_app.cpp ias.h ias.cpp enclave_verify.h enclave_verify.c sp_ocalls.cpp tmp_config.h tmp_config.cpp loop_routine.h loop_routine.cpp
+        SRCS sp_app.cpp ias.h ias.cpp sp_ocalls.cpp config.h config.cpp loop_routine.cpp
         EDL sp_enclave/sp_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 
 #target_compile_options(sp_app PRIVATE -Wno-pointer-to-int-cast)
 
 add_subdirectory(ias_request)
-add_subdirectory(key_exchange_message)
 
 target_include_directories(sp_app PRIVATE ias_request)
-target_include_directories(sp_app PRIVATE key_exchange_message)
 
-target_link_libraries(sp_app ias_request key_exchange_message) #  sp_ocalls
-target_link_libraries(sp_app common msgio hexutil logfile fileio base64 byteorder sgx_utils crypto)
+target_link_libraries(sp_app ias_request) #  sp_ocalls
+target_link_libraries(sp_app common message hexutil logfile fileio base64 sgx_utils crypto)
 
 add_dependencies(sp_app sp_enclave-sign)

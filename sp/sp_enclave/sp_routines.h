@@ -5,6 +5,7 @@
 #include <sgx_key_exchange.h>
 #include "protocol.h"
 #include "common.h"
+#include "trust_policy.h"
 
 using namespace std;
 
@@ -40,6 +41,7 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret,
 
 sgx_status_t private_build_msg4(ra_secret_t &secret,
                                 const string &attestation_response,
+                                const ra_trust_policy &policy,
                                 ra_msg4_t &msg4,
                                 attestation_error_t &att_error);
 

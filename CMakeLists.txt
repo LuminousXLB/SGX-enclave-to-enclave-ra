@@ -8,8 +8,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(SGX REQUIRED)
 include_directories(${SGX_INCLUDE_DIR})
 
-find_package(SGXSSL REQUIRED)
-
 # Common
 #add_subdirectory(protocol)
 include_directories(protocol)

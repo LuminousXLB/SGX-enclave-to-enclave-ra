@@ -130,7 +130,6 @@ bool cert_verify(X509_STORE *store, X509_STACK *chain) {
     X509 *cert = sk_X509_value(chain, 0);
 
     try {
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> Before X509_STORE_CTX_new");
 
         ctx = X509_STORE_CTX_new();
         if (ctx == nullptr) {
@@ -141,19 +140,13 @@ bool cert_verify(X509_STORE *store, X509_STACK *chain) {
             throw get_openssl_error();
         }
 
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> Before X509_verify_cert");
-
-        int rv = hook_X509_verify_cert_hook(ctx);
-
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> After X509_verify_cert");
+        int rv = X509_verify_cert(ctx);
 
         if (rv != 1 && rv != 0) {
             throw get_openssl_error();
         }
 
         X509_STORE_CTX_free(ctx);
-
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> Before return");
 
         return rv;
     } catch (...) {
@@ -256,7 +249,6 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
      */
     att_error = NoErrorInformation;
 
-
     X509 *sign_cert = nullptr; /* The first cert in the list */
 
     X509_STACK *stack = nullptr;
@@ -264,12 +256,7 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
     X509_STORE *store = nullptr;
     vector<X509 *> cert_vec;
 
-    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "Verify the signing certificate");
-
     try {
-
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "Load the certificate chain");
-
         try {
             // Get the certificate chain from the headers
             string cert_chain = response.headers_as_string("X-IASReport-Signing-Certificate");
@@ -296,7 +283,6 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
             throw;
         }
 
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "Verify the certificate chain");
 
         // Create a X509_STACK stack from our certs
         stack = cert_stack_build(cert_vec);
@@ -305,7 +291,6 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
         ias_root_ca = cert_load_Intel_SGX_Attestation_RootCA();
         store = cert_init_ca(ias_root_ca);
 
-        ocall_eputs(__FILE__, __FUNCTION__, __LINE__, ">>> Before Verify");
 
         size_t i = 0;
         if (cert_verify(store, stack)) {
@@ -345,7 +330,6 @@ sgx_status_t verify_certificate(const httpparser::Response &response, attestatio
     unsigned char *sig = nullptr;
     size_t sig_size;
 
-    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "verify the signature");
 
     try {
         // The signing cert is valid, so extract and verify the signature

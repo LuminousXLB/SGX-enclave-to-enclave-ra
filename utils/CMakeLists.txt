@@ -1,16 +1,15 @@
-add_subdirectory(encoding/cppcodec)
-include_directories(encoding/cppcodec)
+add_subdirectory(cppcodec)
+include_directories(cppcodec)
 
-add_library(msgio msgio.h msgio.cpp socket_log.h socket_log.cpp)
+add_library(message message/message.cpp message/msgio.cpp message/socket_log.cpp)
 add_library(fileio fileio.h fileio.c)
 
 add_library(common common.h common.cpp)
 add_library(logfile logfile.h logfile.c)
 
-add_library(hexutil hexutil.h hexutil.c)
-add_library(base64 base64.h base64.c ../sp/tmp_config.cpp ../sp/tmp_config.h socket_log.cpp socket_log.h)
+add_library(hexutil hexutil.h hexutil.cpp)
+add_library(base64 base64.h base64.c)
 #add_library(json json.hpp)
 
-add_library(byteorder byteorder.h byteorder.c)
-add_library(sgx_utils sgx_utils/sgx_utils.h sgx_utils/sgx_utils.cpp)
+add_library(sgx_utils sgx_utils/sgx_utils.h sgx_utils/sgx_utils.cpp sgx_utils/search_shared_library.cpp)
 

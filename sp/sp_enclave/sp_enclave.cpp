@@ -59,7 +59,7 @@ sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_ty
 
 
 sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, const char *attestation_report,
-                                ra_msg4_t *msg4, attestation_error_t *att_error) {
+                                ra_trust_policy policy, ra_msg4_t *msg4, attestation_error_t *att_error) {
     if (!msg3 || !attestation_report || !msg4 || !att_error) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
@@ -78,7 +78,7 @@ sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, c
 
     /* build msg4 */
     const string attestation_response = attestation_report;
-    status = private_build_msg4(secret, attestation_response, *msg4, *att_error);
+    status = private_build_msg4(secret, attestation_response, policy, *msg4, *att_error);
     check_sgx_status(status);
 
     return status;

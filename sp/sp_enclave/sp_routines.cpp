@@ -8,6 +8,7 @@
 #include <mbusafecrt.h>
 #include "utils/cert_utils.h"
 #include "utils/json.hpp"
+#include "utils/base64.h"
 
 using namespace std;
 
@@ -165,8 +166,8 @@ sgx_status_t private_proc_msg3(ra_secret_t &secret, const sgx_ra_msg3_t &msg3, a
     return SGX_SUCCESS;
 }
 
-sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_response, ra_msg4_t &msg4,
-                                attestation_error_t &att_error) {
+sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_response, const ra_trust_policy &policy,
+                                ra_msg4_t &msg4, attestation_error_t &att_error) {
     sgx_status_t status = SGX_SUCCESS;
 
     /* parse attestation_report */
@@ -184,179 +185,81 @@ sgx_status_t private_build_msg4(ra_secret_t &secret, const string &attestation_r
     status = verify_certificate(response, att_error);
     check_sgx_status(status);
 
-    /* verify attestation_report */
-    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "verify attestation_report");
+    /* process attestation_report */
+    ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "process attestation_report");
     json::JSON reportObj = json::JSON::Load(response.content_string());
+
+
+    /*
+   * This sample's attestion policy is based on isvEnclaveQuoteStatus:
+   *
+   *   1) if "OK" then return "Trusted"
+   *
+   *   2) if "CONFIGURATION_NEEDED" then return "NotTrusted_ItsComplicated" when in --strict-trust-mode
+   *        and "Trusted_ItsComplicated" otherwise
+   *
+   *   3) return "NotTrusted" for all other responses
+   *
+   * Complicated means the client is not trusted, but can conceivable take action that will allow it to be trusted
+   * (such as a BIOS update).
+    */
 
     // TODO: return this for further check
     unsigned int report_version = (unsigned int) reportObj["version"].ToInt();
 
-    int rv;
-    ocall_fputs(&rv, TO_STDOUT, response.inspect().c_str());
+    memset(&msg4, 0, sizeof(ra_msg4_t));
 
-}
+    string isvEnclaveQuoteStatus = reportObj["isvEnclaveQuoteStatus"].ToString();
+    if (isvEnclaveQuoteStatus == "OK") {
+        msg4.status = Trusted;
+    } else if (isvEnclaveQuoteStatus == "CONFIGURATION_NEEDED") {
+        msg4.status = policy.allow_configuration_needed ? Trusted_Complicated : NotTrusted_Complicated;
+    } else if (isvEnclaveQuoteStatus == "GROUP_OUT_OF_DATE") {
+        msg4.status = NotTrusted_Complicated;
+    } else {
+        msg4.status = NotTrusted;
+    }
+
+    if (msg4.status == Trusted || msg4.status == NotTrusted_Complicated) {
+        string isvEnclaveQuoteBody = reportObj["isvEnclaveQuoteBody"].ToString();
+        vector<uint8_t> quote_bytes = base64_decode(isvEnclaveQuoteBody);
+        const sgx_quote_t &quote = *(sgx_quote_t *) quote_bytes.data();
+        const sgx_report_body_t &report_body = quote.report_body;
+
+        if (!policy.allow_debug && report_body.attributes.flags & SGX_FLAGS_DEBUG) {
+            // Is the enclave compiled in debug mode?
+            msg4.status = NotTrusted;
+            ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "allow_debug");
+        } else if (report_body.isv_prod_id != policy.isv_product_id) {
+            // Does the ISV product ID meet the minimum requirement?
+            msg4.status = NotTrusted;
+            ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "isv_prod_id");
+        } else if (report_body.isv_svn < policy.isv_min_svn) {
+            // Does the ISV SVN meet the minimum version?
+            msg4.status = NotTrusted;
+            ocall_eputs(__FILE__, __FUNCTION__, __LINE__, "isv_svn");
+        } else if (memcmp(&report_body.mr_signer, &policy.mrsigner, sizeof(sgx_measurement_t)) != 0) {
+            // Does the MRSIGNER match?
+//            TODO: fix mrsigner verification
+//            msg4.status = NotTrusted;
+        }
+    }
 
 #if 0
-// whether trust
+    /* Check to see if a platformInfoBlob was sent back as part of the response */
+    if (!reportObj["platformInfoBlob"].IsNull()) {
+        /* The platformInfoBlob has two parts, a TVL Header (4 bytes), and TLV Payload (variable) */
+        string pibBuff = reportObj["platformInfoBlob"].ToString();
 
-        /*
-         * This sample's attestion policy is based on isvEnclaveQuoteStatus:
-         *
-         *   1) if "OK" then return "Trusted"
-         *
-          *   2) if "CONFIGURATION_NEEDED" then return
-         *       "NotTrusted_ItsComplicated" when in --strict-trust-mode
-         *        and "Trusted_ItsComplicated" otherwise
-         *
-         *   3) return "NotTrusted" for all other responses
-         *
-         *
-         * ItsComplicated means the client is not trusted, but can
-         * conceivable take action that will allow it to be trusted
-         * (such as a BIOS update).
-          */
+        /* remove the TLV Header (8 base16 chars, ie. 4 bytes) from the PIB Buff. */
+        pibBuff.erase(pibBuff.begin(), pibBuff.begin() + (4 * 2));
 
-        /*
-         * Simply check to see if status is OK, else enclave considered
-         * not trusted
-         */
-
-        memset(msg4, 0, sizeof(ra_msg4_t));
-
-        if (verbose) edividerWithText("ISV isv_enclave Trust Status");
-
-        if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("OK"))) {
-            msg4->status.trust = Trusted;
-            if (verbose) eprintf("isv_enclave TRUSTED\n");
-        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("CONFIGURATION_NEEDED"))) {
-            if (strict_trust) {
-                msg4->status.trust = NotTrusted_Complicated;
-                if (verbose)
-                    eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
-                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-            } else {
-                if (verbose)
-                    eprintf("isv_enclave TRUSTED and COMPLICATED - Reason: %s\n",
-                            reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-                msg4->status.trust = Trusted_Complicated;
-            }
-        } else if (!(reportObj["isvEnclaveQuoteStatus"].ToString().compare("GROUP_OUT_OF_DATE"))) {
-            msg4->status.trust = NotTrusted_Complicated;
-            if (verbose)
-                eprintf("isv_enclave NOT TRUSTED and COMPLICATED - Reason: %s\n",
-                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-        } else {
-            msg4->status.trust = NotTrusted;
-            if (verbose)
-                eprintf("isv_enclave NOT TRUSTED - Reason: %s\n",
-                        reportObj["isvEnclaveQuoteStatus"].ToString().c_str());
-        }
-
-
-        /* Check to see if a platformInfoBlob was sent back as part of the
-         * response */
-
-        if (!reportObj["platformInfoBlob"].IsNull()) {
-            if (verbose) eprintf("A Platform Info Blob (PIB) was provided by the IAS\n");
-
-            /* The platformInfoBlob has two parts, a TVL Header (4 bytes),
-             * and TLV Payload (variable) */
-
-            string pibBuff = reportObj["platformInfoBlob"].ToString();
-
-            /* remove the TLV Header (8 base16 chars, ie. 4 bytes) from
-             * the PIB Buff. */
-
-            pibBuff.erase(pibBuff.begin(), pibBuff.begin() + (4 * 2));
-
-            int ret = from_hexstring((unsigned char *) &msg4->platformInfoBlob,
-                                     pibBuff.c_str(), pibBuff.length() / 2);
-        } else {
-            if (verbose) eprintf("A Platform Info Blob (PIB) was NOT provided by the IAS\n");
-        }
-#endif
-
-
-#if 0
-
-
-#ifndef _WIN32
-/* Windows implementation is not available yet */
-
-        if (!verify_enclave_identity(config->req_mrsigner,
-                                     config->req_isv_product_id, config->min_isvsvn,
-                                     config->allow_debug_enclave, r)) {
-
-            eprintf("Invalid enclave.\n");
-            msg4->status = NotTrusted;
-        }
-#endif
-
-        if (verbose) {
-            edivider();
-
-            // The enclave report is valid so we can trust the report
-            // data.
-
-            edividerWithText("isv_enclave Report Details");
-
-            eprintf("cpu_svn     = %s\n",
-                    hexstring(&r->cpu_svn, sizeof(sgx_cpu_svn_t)));
-            eprintf("misc_select = %s\n",
-                    hexstring(&r->misc_select, sizeof(sgx_misc_select_t)));
-            eprintf("attributes  = %s\n",
-                    hexstring(&r->attributes, sizeof(sgx_attributes_t)));
-            eprintf("mr_enclave  = %s\n",
-                    hexstring(&r->mr_enclave, sizeof(sgx_measurement_t)));
-            eprintf("mr_signer   = %s\n",
-                    hexstring(&r->mr_signer, sizeof(sgx_measurement_t)));
-            eprintf("isv_prod_id = %04hX\n", r->isv_prod_id);
-            eprintf("isv_svn     = %04hX\n", r->isv_svn);
-            eprintf("report_data = %s\n",
-                    hexstring(&r->report_data, sizeof(sgx_report_data_t)));
-        }
-
-
-        edividerWithText("Copy/Paste Msg4 Below to Client");
-
-        /* Serialize the members of the Msg4 structure independently */
-        /* vs. the entire structure as one send_msg() */
-
-        msgio->send_partial(&msg4->status, sizeof(msg4->status));
-        msgio->send(&msg4->platformInfoBlob, sizeof(msg4->platformInfoBlob));
-
-        fsend_msg_partial(fplog, &msg4->status, sizeof(msg4->status));
-        fsend_msg(fplog, &msg4->platformInfoBlob,
-                  sizeof(msg4->platformInfoBlob));
-        edivider();
-
-        /*
-         * If the enclave is trusted, derive the MK and SK. Also get
-         * SHA256 hashes of these so we can verify there's a shared
-         * secret between us and the client.
-         */
-
-        if (msg4->status == Trusted) {
-            unsigned char hashmk[32], hashsk[32];
-
-            if (debug) eprintf("+++ Deriving the MK and SK\n");
-            cmac128(session->kdk, (unsigned char *) ("\x01MK\x00\x80\x00"),
-                    6, session->mk);
-            cmac128(session->kdk, (unsigned char *) ("\x01SK\x00\x80\x00"),
-                    6, session->sk);
-
-            sha256_digest(session->mk, 16, hashmk);
-            sha256_digest(session->sk, 16, hashsk);
-
-            if (verbose) {
-                if (debug) {
-                    eprintf("MK         = %s\n", hexstring(session->mk, 16));
-                    eprintf("SK         = %s\n", hexstring(session->sk, 16));
-                }
-                eprintf("SHA256(MK) = %s\n", hexstring(hashmk, 32));
-                eprintf("SHA256(SK) = %s\n", hexstring(hashsk, 32));
-            }
-        }
-
+//        int ret = from_hexstring((unsigned char *) &msg4->platformInfoBlob, pibBuff.c_str(), pibBuff.length() / 2);
+    } else {
+//        if (verbose) eprintf("A Platform Info Blob (PIB) was NOT provided by the IAS\n");
     }
 #endif
+
+    return SGX_SUCCESS;
+}
+

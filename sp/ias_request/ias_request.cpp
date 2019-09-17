@@ -57,7 +57,9 @@ void ias_list_agents(FILE *fp) {
 #endif
 }
 
-IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscriptionKey, char *secSubscriptionKey) {
+IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, const subkey_t &priSubscriptionKey,
+                               const subkey_t &secSubscriptionKey) {
+
     c_server = ias_servers[server_idx];
     c_flags = flags;
     c_server_port = IAS_PORT;
@@ -66,8 +68,9 @@ IAS_Connection::IAS_Connection(int server_idx, uint32_t flags, char *priSubscrip
     c_agent_name = "";
     c_proxy_port = 80;
     c_store = nullptr;
-    setSubscriptionKey(SubscriptionKeyID::Primary, priSubscriptionKey);
-    setSubscriptionKey(SubscriptionKeyID::Secondary, secSubscriptionKey);
+
+    subscription_key[SubscriptionKeyID::Primary] = priSubscriptionKey;
+    subscription_key[SubscriptionKeyID::Secondary] = secSubscriptionKey;
 }
 
 IAS_Connection::~IAS_Connection() {
@@ -83,88 +86,46 @@ int IAS_Connection::agent(const char *agent_name) {
     return 0;
 }
 
-int IAS_Connection::proxy(const char *server, uint16_t port) {
-    int rv = 1;
-    try {
-        c_proxy_server = server;
-    }
-    catch (...) {
-        rv = 0;
-    }
-    c_proxy_port = port;
+//int IAS_Connection::proxy(const char *server, uint16_t port) {
+//    int rv = 1;
+//    try {
+//        c_proxy_server = server;
+//    }
+//    catch (...) {
+//        rv = 0;
+//    }
+//    c_proxy_port = port;
+//
+//    c_proxy_mode = IAS_PROXY_FORCE;
+//
+//    return rv;
+//}
+//
+//string IAS_Connection::proxy_url() {
+//    string proxy_url;
+//
+//    if (c_proxy_server.empty())
+//        return "";
+//
+//    proxy_url = "http://" + c_proxy_server;
+//
+//    if (c_proxy_port != 80) {
+//        proxy_url += ":";
+//        proxy_url += to_string(c_proxy_port);
+//    }
+//
+//    return proxy_url;
+//}
 
-    c_proxy_mode = IAS_PROXY_FORCE;
-
-    return rv;
-}
-
-string IAS_Connection::proxy_url() {
-    string proxy_url;
-
-    if (c_proxy_server.empty())
-        return "";
-
-    proxy_url = "http://" + c_proxy_server;
-
-    if (c_proxy_port != 80) {
-        proxy_url += ":";
-        proxy_url += to_string(c_proxy_port);
-    }
-
-    return proxy_url;
-}
-
-// Encrypt the subscription key while its stored in memory
-int IAS_Connection::setSubscriptionKey(SubscriptionKeyID id, char *subscriptionKeyPlainText) {
-    memset(subscription_key_enc[id], 0, sizeof(subscription_key_enc[id]));
-    memset(subscription_key_xor[id], 0, sizeof(subscription_key_xor[id]));
-
-    if (subscriptionKeyPlainText == nullptr || (strlen(subscriptionKeyPlainText) != IAS_SUBSCRIPTION_KEY_SIZE) ||
-        (id == SubscriptionKeyID::Last)) {
-        if (debug)
-            eprintf("Error Setting subscriptionKey\n");
-        return 0;
-    }
-
-    // Create Random one time pad
-    RAND_bytes((unsigned char *) subscription_key_xor[id], (int) sizeof(subscription_key_xor[id]));
-
-    // XOR Subscription Key with One Time Pad to create an encrypted key
-    for (int i = 0; i < IAS_SUBSCRIPTION_KEY_SIZE; i++)
-        subscription_key_enc[id][i] = (unsigned char) subscriptionKeyPlainText[i] ^ subscription_key_xor[id][i];
-
-    if (debug && verbose) {
-        eprintf("\n+++ IAS Subscription Key[%d]:\t'%s'\n", id, subscriptionKeyPlainText);
-        eprintf("+++ IAS Subscription Key[%d] (Hex):\t%s\n", id,
-                hexstring(subscriptionKeyPlainText, IAS_SUBSCRIPTION_KEY_SIZE));
-        eprintf("+++ One-time pad:\t\t\t%s\n", hexstring(subscription_key_xor[id], sizeof(subscription_key_xor[id])));
-        eprintf("+++ Encrypted Subscription Key[%d]:\t%s\n\n", id,
-                hexstring(subscription_key_enc[id], sizeof(subscription_key_enc[id])));
-    }
-
-    // zero the original subscription key in memory
-    memset(subscriptionKeyPlainText, 0, IAS_SUBSCRIPTION_KEY_SIZE);
-
-    return 1;
-}
 
 // Decrypt then return the subscription key
 string IAS_Connection::getSubscriptionKey() {
-    char keyBuff[IAS_SUBSCRIPTION_KEY_SIZE + 1];
-    memset(keyBuff, 0, IAS_SUBSCRIPTION_KEY_SIZE + 1);
 
-    for (int i = 0; i < IAS_SUBSCRIPTION_KEY_SIZE; i++)
-        keyBuff[i] = (subscription_key_enc[currentKeyID][i] ^ subscription_key_xor[currentKeyID][i]);
-
-    string subscriptionKeyBuff(keyBuff);
+    string subscriptionKeyBuff(subscription_key[currentKeyID].data(),
+                               subscription_key[currentKeyID].data() + IAS_SUBSCRIPTION_KEY_SIZE);
 
     if (debug) {
         eprintf("\n+++ Reconstructed Subscription Key:\t'%s'\n", subscriptionKeyBuff.c_str());
-        eprintf("+++ IAS Subscription Key (Hex):\t\t%s\n", hexstring(keyBuff, IAS_SUBSCRIPTION_KEY_SIZE));
-        eprintf("+++ One-time pad:\t\t\t%s\n",
-                hexstring(subscription_key_xor[currentKeyID], sizeof(subscription_key_xor[currentKeyID])));
-        eprintf("+++ Encrypted SubscriptionKey:\t\t%s\n\n",
-                hexstring(subscription_key_enc[currentKeyID], sizeof(subscription_key_enc[currentKeyID])));
     }
 
     return subscriptionKeyBuff;
@@ -296,195 +257,6 @@ ias_error_t IAS_Request::sigrl(uint32_t gid, string &sigrl) {
     return response.statusCode;
 }
 
-ias_error_t IAS_Request::verify_certificate(const Response &response) {
-    /*
-     * The response body has the attestation report. The headers have
-     * a signature of the report, and the public signing certificate.
-     * We need to:
-     *
-     * 1) Verify the certificate chain, to ensure it's issued by the
-     *    Intel CA (passed with the -A option).
-     *
-     * 2) Extract the public key from the signing cert, and verify
-     *    the signature.
-     */
-
-    size_t cstart, cend;
-    X509 *sign_cert;
-    size_t sigsz;
-    int rv;
-    size_t count, i;
-    X509 **certar;
-    STACK_OF(X509) *stack;
-    unsigned char *sig = nullptr;
-    EVP_PKEY *pkey = nullptr;
-    string certchain;
-    vector<X509 *> certvec;
-    ias_error_t status = IAS_OK;
-    string sigstr;
-    string content = response.content_string();
-
-    // Get the certificate chain from the headers
-
-    certchain = response.headers_as_string("X-IASReport-Signing-Certificate");
-    if (certchain == "") {
-        eprintf("Header X-IASReport-Signing-Certificate not found\n");
-        return IAS_BAD_CERTIFICATE;
-    }
-
-    // URL decode
-    try {
-        certchain = url_decode(certchain);
-    }
-    catch (...) {
-        eprintf("invalid URL encoding in header X-IASReport-Signing-Certificate\n");
-        return IAS_BAD_CERTIFICATE;
-    }
-
-    // Build the cert stack. Find the positions in the string where we
-    // have a BEGIN block.
-
-    cstart = cend = 0;
-    while (cend != string::npos) {
-        X509 *cert;
-        size_t len;
-
-        cend = certchain.find("-----BEGIN", cstart + 1);
-        len = ((cend == string::npos) ? certchain.length() : cend) - cstart;
-
-        if (verbose) {
-            edividerWithText("Certficate");
-            eputs(certchain.substr(cstart, len).c_str());
-            eprintf("\n");
-            edivider();
-        }
-
-        if (!cert_load(&cert, certchain.substr(cstart, len).c_str())) {
-            crypto_perror("cert_load");
-            return IAS_BAD_CERTIFICATE;
-        }
-
-        certvec.push_back(cert);
-        cstart = cend;
-    }
-
-    count = certvec.size();
-    if (debug)
-        eprintf("+++ Found %lu certificates in chain\n", count);
-
-    certar = (X509 **) malloc(sizeof(X509 *) * (count + 1));
-    if (certar == 0) {
-        perror("malloc");
-        return IAS_INTERNAL_ERROR;
-    }
-    for (i = 0; i < count; ++i)
-        certar[i] = certvec[i];
-    certar[count] = nullptr;
-
-    // Create a STACK_OF(X509) stack from our certs
-
-    stack = cert_stack_build(certar);
-    if (stack == nullptr) {
-        crypto_perror("cert_stack_build");
-        status = IAS_INTERNAL_ERROR;
-        goto cleanup;
-    }
-
-    // Now verify the signing certificate
-
-    rv = cert_verify(this->conn()->cert_store(), stack);
-
-    if (!rv) {
-        crypto_perror("cert_stack_build");
-        eprintf("certificate verification failure\n");
-        status = IAS_BAD_CERTIFICATE;
-        goto cleanup;
-    } else {
-        if (debug)
-            eprintf("+++ certificate chain verified\n", rv);
-    }
-
-    // The signing cert is valid, so extract and verify the signature
-
-    sigstr = response.headers_as_string("X-IASReport-Signature");
-    if (sigstr == "") {
-        eprintf("Header X-IASReport-Signature not found\n");
-        status = IAS_BAD_SIGNATURE;
-        goto cleanup;
-    }
-
-    sig = (unsigned char *) base64_decode(sigstr.c_str(), &sigsz);
-    if (sig == nullptr) {
-        eprintf("Could not decode signature\n");
-        status = IAS_BAD_SIGNATURE;
-        goto cleanup;
-    }
-
-    if (verbose) {
-        edividerWithText("Report Signature");
-        print_hexstring(stderr, sig, sigsz);
-        if (fplog != NULL)
-            print_hexstring(fplog, sig, sigsz);
-        eprintf("\n");
-        edivider();
-    }
-
-    sign_cert = certvec[0]; /* The first cert in the list */
-
-    /*
-     * The report body is SHA256 signed with the private key of the
-     * signing cert.  Extract the public key from the certificate and
-     * verify the signature.
-     */
-
-    if (debug)
-        eprintf("+++ Extracting public key from signing cert\n");
-    pkey = X509_get_pubkey(sign_cert);
-    if (pkey == NULL) {
-        eprintf("Could not extract public key from certificate\n");
-        status = IAS_INTERNAL_ERROR;
-        goto cleanup;
-    }
-
-
-    if (debug) {
-        eprintf("+++ Verifying signature over report body\n");
-        edividerWithText("Report");
-        eputs(content.c_str());
-        eprintf("\n");
-        edivider();
-        eprintf("Content-length: %lu bytes\n", response.content_string().length());
-        edivider();
-    }
-
-    if (!sha256_verify((const unsigned char *) content.c_str(), content.length(), sig, sigsz, pkey, &rv)) {
-
-        crypto_perror("sha256_verify");
-        eprintf("Could not validate signature\n");
-        status = IAS_BAD_SIGNATURE;
-    } else {
-        if (rv) {
-            if (verbose)
-                eprintf("+++ Signature verified\n");
-            status = IAS_OK;
-        } else {
-            eprintf("Invalid report signature\n");
-            status = IAS_BAD_SIGNATURE;
-        }
-    }
-
-    cleanup:
-    if (pkey != nullptr)
-        EVP_PKEY_free(pkey);
-    cert_stack_free(stack);
-    free(certar);
-    for (i = 0; i < count; ++i)
-        X509_free(certvec[i]);
-    free(sig);
-
-    return status;
-}
-
 ias_error_t IAS_Request::report(map<string, string> &payload, string &content, vector<string> &messages,
                                 string &sresponse, int &exitcode) {
     Response response;
@@ -492,7 +264,7 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content, v
     string url = r_conn->base_url();
     string body = "{\n";
     string header;
-    ias_error_t status;
+    ias_error_t status = IAS_OK;
     Agent *agent = r_conn->new_agent();
 
     if (agent == nullptr) {
@@ -565,10 +337,10 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content, v
      * Check IAS Certicicate
      */
 
-    status = verify_certificate(response);
-    if (status != IAS_OK) {
-        goto cleanup;
-    }
+//    status = verify_certificate(response);
+//    if (status != IAS_OK) {
+//        goto cleanup;
+//    }
     content = response.content_string();
 
     /*
@@ -584,7 +356,6 @@ ias_error_t IAS_Request::report(map<string, string> &payload, string &content, v
         messages.push_back(header);
 
 
-    cleanup:
     delete agent;
 
     return status;
