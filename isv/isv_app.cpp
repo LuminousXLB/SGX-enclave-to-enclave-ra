@@ -27,7 +27,9 @@ in the License.
 #include <ctime>
 #include <sgx_urts.h>
 #include <sgx_utils/sgx_utils.h>
+#include <message/message.h>
 #include "isv_enclave_u.h"
+#include "ISV_Attestation.h"
 #include "config.h"
 #include "common.h"
 #include "logfile.h"
@@ -38,7 +40,7 @@ using namespace std;
 char debug = 0;
 char verbose = 0;
 
-int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args);
+int isv_do_attestation(sgx_enclave_id_t eid, MsgIO *msgio, const UserArgs &user_args);
 
 int main(int argc, char *argv[]) {
     const UserArgs user_args = UserArgs();
@@ -75,7 +77,20 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    isv_do_attestation(global_eid, user_args);
+
+    MsgIO *msgio = nullptr;
+    if (user_args.get_bind_port().empty()) {
+        msgio = new MsgIO();
+    } else {
+        try {
+            msgio = new MsgIO(user_args.get_bind_address().c_str(), user_args.get_bind_port().c_str());
+        }
+        catch (...) {
+            exit(1);
+        }
+    }
+
+    isv_do_attestation(global_eid, msgio, user_args);
 
     close_logfile(fplog);
 

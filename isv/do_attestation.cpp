@@ -9,114 +9,46 @@
 #include "common.h"
 #include "logfile.h"
 #include "hexutil.h"
-#include <sgx_uae_service.h>
-#include <sgx_ukey_exchange.h>
 #include <vector>
-#include <sgx_urts.h>
 #include "config.h"
+#include "ISV_Attestation.h"
 
 using namespace std;
 
 extern char debug;
 extern char verbose;
 
-int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
-    sgx_status_t status, sgxrv, pse_status;
-    sgx_ra_msg1_t msg1;
-    sgx_ra_msg2_t *msg2 = nullptr;
-    sgx_ra_msg3_t *msg3 = nullptr;
-    ra_msg4_t *msg4 = nullptr;
-    uint32_t msg0_extended_epid_group_id = 0;
-    uint32_t msg3_sz;
-    sgx_ra_context_t ra_ctx = 0xdeadbeef;
+
+//bool isv_attestation_generate_message0(sgx_enclave_id_t)
+
+bool isv_do_attestation(sgx_enclave_id_t eid, MsgIO *msgio, const UserArgs &user_args) {
+//    sgx_status_t status, sgxrv, pse_status;
+//    sgx_ra_msg2_t *msg2 = nullptr;
+//    sgx_ra_msg3_t *msg3 = nullptr;
+//    ra_msg4_t *msg4 = nullptr;
+//    uint32_t msg0_extended_epid_group_id = 0;
+//    uint32_t msg3_sz;
     int rv;
-    MsgIO *msgio;
 
     int enclaveTrusted = NotTrusted; // Not Trusted
 
-    if (user_args.get_bind_port().empty()) {
-        msgio = new MsgIO();
-    } else {
-        try {
-            msgio = new MsgIO(user_args.get_bind_address().c_str(), user_args.get_bind_port().c_str());
-        }
-        catch (...) {
-            exit(1);
-        }
-    }
+    sgx_ra_context_t ra_ctx = 0xdeadbeef;
 
-    /*
-     * WARNING! Normally, the public key would be hardcoded into the
-     * enclave, not passed in as a parameter. Hardcoding prevents
-     * the enclave using an unauthorized key.
-     *
-     * This is diagnostic/test application, however, so we have
-     * the flexibility of a dynamically assigned key.
-     */
+    /* Executes an ECALL that runs sgx_ra_init(), generate ra_context */
 
-    /* Executes an ECALL that runs sgx_ra_init() */
-
-    if (debug) fprintf(stderr, "+++ using default public key\n");
-    status = enclave_ra_init_def(eid, &sgxrv, user_args.get_client_use_platform_services(), &ra_ctx, &pse_status);
-
-    /* Did the ECALL succeed? */
-    if (status != SGX_SUCCESS) {
-        fprintf(stderr, "enclave_ra_init: %08x\n", status);
-        delete msgio;
-        return 1;
-    }
-
-    /* If we asked for a PSE session, did that succeed? */
-    if (user_args.get_client_use_platform_services()) {
-        if (pse_status != SGX_SUCCESS) {
-            fprintf(stderr, "pse_session: %08x\n", sgxrv);
-            delete msgio;
-            return 1;
-        }
-    }
-
-    /* Did sgx_ra_init() succeed? */
-    if (sgxrv != SGX_SUCCESS) {
-        fprintf(stderr, "sgx_ra_init: %08x\n", sgxrv);
-        delete msgio;
-        return 1;
-    }
+    ISV_Attestation isv_attestation_instance(eid, user_args);
 
     /* Generate msg0 */
 
-    status = sgx_get_extended_epid_group_id(&msg0_extended_epid_group_id);
-    if (status != SGX_SUCCESS) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
-        fprintf(stderr, "sgx_get_extended_epid_group_id: %08x\n", status);
-        delete msgio;
-        return 1;
-    }
+    uint32_t msg0 = isv_attestation_instance.generate_msg0();
 
     /* Generate msg1 */
 
-    status = sgx_ra_get_msg1(ra_ctx, eid, sgx_ra_get_ga, &msg1);
-    if (status != SGX_SUCCESS) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
-        fprintf(stderr, "sgx_ra_get_msg1: %08x\n", status);
-        fprintf(fplog, "sgx_ra_get_msg1: %08x\n", status);
-        delete msgio;
-        return 1;
-    }
+    const vector<uint8_t> &msg1_bytes = isv_attestation_instance.generate_msg1();
 
     if (verbose) {
-        dividerWithText(stderr, "Msg0 Details");
-        dividerWithText(fplog, "Msg0 Details");
-        fprintf(stderr, "Extended Epid Group ID: ");
-        fprintf(fplog, "Extended Epid Group ID: ");
-        print_hexstring(stderr, &msg0_extended_epid_group_id, sizeof(uint32_t));
-        print_hexstring(fplog, &msg0_extended_epid_group_id, sizeof(uint32_t));
-        fprintf(stderr, "\n");
-        fprintf(fplog, "\n");
-        divider(stderr);
-        divider(fplog);
-    }
+        const sgx_ra_msg1_t &msg1 = *(const sgx_ra_msg1_t *) msg1_bytes.data();
 
-    if (verbose) {
         dividerWithText(stderr, "Msg1 Details");
         dividerWithText(fplog, "Msg1 Details");
         fprintf(stderr, "msg1.g_a.gx = ");
@@ -150,15 +82,13 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
      */
 
     dividerWithText(fplog, "Msg0||Msg1 ==> SP");
-    fsend_msg_partial(fplog, &msg0_extended_epid_group_id, sizeof(msg0_extended_epid_group_id));
-    fsend_msg(fplog, &msg1, sizeof(msg1));
+    fsend_msg_partial(fplog, &msg0, sizeof(uint32_t));
+    fsend_msg(fplog, msg1_bytes.data(), msg1_bytes.size());
     divider(fplog);
 
     dividerWithText(stderr, "Copy/Paste Msg0||Msg1 Below to SP");
-    msgio->send_partial(&msg0_extended_epid_group_id, sizeof(msg0_extended_epid_group_id));
-
-    vector<uint8_t> msg1_byte((uint8_t *) &msg1, (uint8_t *) &msg1 + sizeof(msg1));
-    msgio->send(msg1_byte);
+    msgio->send_partial(&msg0, sizeof(uint32_t));
+    msgio->send(msg1_bytes);
     divider(stderr);
 
     fprintf(stderr, "Waiting for msg2\n");
@@ -169,23 +99,21 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
      * the end. msg2 is malloc'd in readZ_msg do free it when done.
      */
     vector<uint8_t> msg2_bytes;
-
     rv = msgio->read(msg2_bytes);
-    msg2 = reinterpret_cast<sgx_ra_msg2_t *>(&msg2_bytes[0]);
 
     if (rv == 0) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
         fprintf(stderr, "protocol error reading msg2\n");
         delete msgio;
         exit(1);
     } else if (rv == -1) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
         fprintf(stderr, "system error occurred while reading msg2\n");
         delete msgio;
         exit(1);
     }
 
     if (verbose) {
+        const sgx_ra_msg2_t *msg2 = (sgx_ra_msg2_t *) msg2_bytes.data();
+
         dividerWithText(stderr, "Msg2 Details");
         dividerWithText(fplog, "Msg2 Details (Received from SP)");
         fprintf(stderr, "msg2.g_b.gx      = ");
@@ -231,37 +159,24 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
     }
 
     if (debug) {
+        const sgx_ra_msg2_t *msg2 = (sgx_ra_msg2_t *) msg2_bytes.data();
+
         fprintf(stderr, "+++ msg2_size = %zu\n", sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
         fprintf(fplog, "+++ msg2_size = %zu\n", sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size);
     }
 
     /* Process Msg2, Get Msg3  */
     /* object msg3 is malloc'd by SGX SDK, so remember to free when finished */
-
-    msg3 = nullptr;
-
-    status = sgx_ra_proc_msg2(ra_ctx, eid,
-                              sgx_ra_proc_msg2_trusted, sgx_ra_get_msg3_trusted, msg2,
-                              sizeof(sgx_ra_msg2_t) + msg2->sig_rl_size,
-                              &msg3, &msg3_sz);
-
-    free(msg2);
-
-    if (status != SGX_SUCCESS) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
-        fprintf(stderr, "sgx_ra_proc_msg2: %08x\n", status);
-        fprintf(fplog, "sgx_ra_proc_msg2: %08x\n", status);
-
-        delete msgio;
-        return 1;
-    }
+    const vector<uint8_t> &msg3_bytes = isv_attestation_instance.generate_msg3(msg2_bytes);
 
     if (debug) {
-        fprintf(stderr, "+++ msg3_size = %u\n", msg3_sz);
-        fprintf(fplog, "+++ msg3_size = %u\n", msg3_sz);
+        fprintf(stderr, "+++ msg3_size = %zu\n", msg3_bytes.size());
+        fprintf(fplog, "+++ msg3_size = %zu\n", msg3_bytes.size());
     }
 
     if (verbose) {
+        const sgx_ra_msg3_t *msg3 = (sgx_ra_msg3_t *) msg3_bytes.data();
+
         dividerWithText(stderr, "Msg3 Details");
         dividerWithText(fplog, "Msg3 Details");
         fprintf(stderr, "msg3.mac         = ");
@@ -283,8 +198,8 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
         fprintf(fplog, "\n");
         fprintf(stderr, "\nmsg3.quote       = ");
         fprintf(fplog, "\nmsg3.quote       = ");
-        print_hexstring(stderr, msg3->quote, msg3_sz - sizeof(sgx_ra_msg3_t));
-        print_hexstring(fplog, msg3->quote, msg3_sz - sizeof(sgx_ra_msg3_t));
+        print_hexstring(stderr, msg3->quote, msg3_bytes.size() - sizeof(sgx_ra_msg3_t));
+        print_hexstring(fplog, msg3->quote, msg3_bytes.size() - sizeof(sgx_ra_msg3_t));
         fprintf(fplog, "\n");
         fprintf(stderr, "\n");
         fprintf(fplog, "\n");
@@ -293,31 +208,23 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
     }
 
     dividerWithText(stderr, "Copy/Paste Msg3 Below to SP");
-    vector<uint8_t> msg3_bytes((uint8_t *) msg3, (uint8_t *) msg3 + msg3_sz);
     msgio->send(msg3_bytes);
     divider(stderr);
 
     dividerWithText(fplog, "Msg3 ==> SP");
-    fsend_msg(fplog, msg3, msg3_sz);
+    fsend_msg(fplog, msg3_bytes.data(), msg3_bytes.size());
     divider(fplog);
-
-    if (msg3) {
-        free(msg3);
-        msg3 = nullptr;
-    }
 
     /* Read Msg4 provided by Service Provider, then process */
     vector<uint8_t> msg4_bytes;
     rv = msgio->read(msg4_bytes);
-    msg4 = reinterpret_cast<ra_msg4_t *>(&msg4_bytes[0]);
+    const ra_msg4_t *msg4 = (ra_msg4_t *) msg4_bytes.data();
 
     if (rv == 0) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
         fprintf(stderr, "protocol error reading msg4\n");
         delete msgio;
         exit(1);
     } else if (rv == -1) {
-        enclave_ra_close(eid, &sgxrv, ra_ctx);
         fprintf(stderr, "system error occurred while reading msg4\n");
         delete msgio;
         exit(1);
@@ -397,6 +304,7 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
      * the enclave to show proof of a shared secret with the service
      * provider.
      */
+    sgx_status_t status;
 
     if (enclaveTrusted == Trusted) {
         sgx_status_t key_status, sha_status;
@@ -430,10 +338,7 @@ int isv_do_attestation(sgx_enclave_id_t eid, const UserArgs &user_args) {
         }
     }
 
-    free(msg4);
-
-    enclave_ra_close(eid, &sgxrv, ra_ctx);
     delete msgio;
 
-    return 0;
+    return true;
 }
