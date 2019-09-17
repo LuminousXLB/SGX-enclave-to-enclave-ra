@@ -107,69 +107,130 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
                            userArgs.get_query_ias_production());
     AgentWget agent(userArgs.get_sgx_verbose(), userArgs.get_sgx_debug());
 
+    { // SC 1
+        /**************** Generate message 0 and 1 ****************/
+        const uint32_t msg0 = isvAttEnclave.generate_msg0();
+        vector<uint8_t> msg01_bytes((uint8_t *) &msg0, (uint8_t *) &msg0 + sizeof(uint32_t));
+        const vector<uint8_t> msg1_bytes = isvAttEnclave.generate_msg1();
 
-    /**************** Receive message 0 and 1 ****************/
-    bytes msg01_bytes = codecIo.read();
-    const ra_msg01_t &msg01 = *(const ra_msg01_t *) msg01_bytes.data();
+        /**************** Send message 0 and 1 ****************/
+        msg01_bytes.insert(msg01_bytes.end(), msg1_bytes.begin(), msg1_bytes.end());
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Receive message 0 and 1 ****************/\n");
-        hexdump(stderr, msg01_bytes.data(), msg01_bytes.size());
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
+        }
+
+        codecIo.write(msg01_bytes);
+    }
+
+    { // CS 2
+        /**************** Receive message 0 and 1 ****************/
+        bytes msg01_bytes = codecIo.read();
+        const ra_msg01_t &msg01 = *(const ra_msg01_t *) msg01_bytes.data();
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 0 and 1 ****************/\n");
+            hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
+        }
+
+        /**************** Request sigrl ****************/
+        httpparser::Response sigrl_response;
+        string sigrl = iasRequest.sigrl((Agent *) &agent, *(uint32_t *) msg01.msg1.gid, sigrl_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Request sigrl ****************/\n");
+            eputs(sigrl.c_str());
+        }
+
+        /**************** Process message 0 and 1, generate message 2 ****************/
+        const vector<uint8_t> msg2_bytes = spAttEnclave.process_msg01(msg01_bytes, sigrl);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 2 ****************/\n");
+            hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
+        }
+
+        /**************** Send message 2 ****************/
+        codecIo.write(msg2_bytes);
     }
 
 
-    /**************** Request sigrl ****************/
-    fprintf(stderr, ">>> Requesting SigRL\n");
-    httpparser::Response sigrl_response;
-    string sigrl = iasRequest.sigrl((Agent *) &agent, *(uint32_t *) msg01.msg1.gid, sigrl_response);
+    { // CS 3
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Request sigrl ****************/\n");
-        eputs(sigrl.c_str());
+        /**************** Receive message 2 ****************/
+        vector<uint8_t> msg2_bytes = codecIo.read();
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 2 ****************/\n");
+            hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
+        }
+
+        /**************** Generate message 3 ****************/
+        const vector<uint8_t> msg3_bytes = isvAttEnclave.generate_msg3(msg2_bytes);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
+        }
+        /**************** Send message 3 ****************/
+        codecIo.write(msg3_bytes);
+
+        if (userArgs.get_sgx_debug()) {
+            fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
+        }
+
     }
 
-    /**************** Process message 0 and 1, generate message 2 ****************/
-    const vector<uint8_t> msg2_bytes = spAttEnclave.process_msg01(msg01_bytes, sigrl);
+    { // CS 4
+        /**************** Read message 3 ****************/
+        vector<uint8_t> msg3_bytes = codecIo.read();
+        const sgx_ra_msg3_t &msg3 = *(sgx_ra_msg3_t *) msg3_bytes.data();
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Generate message 2 ****************/\n");
-        hexdump(stderr, msg2_bytes.data(), msg2_bytes.size());
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 3 ****************/\n");
+            hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
+        }
+
+        /**************** Request attestation report ****************/
+        vector<uint8_t> quote_bytes(msg3.quote, msg3.quote + msg3_bytes.size() - sizeof(sgx_ra_msg3_t));
+        map<Attestation_Evidence_Payload, vector<uint8_t >> payload;
+        payload.insert({isvEnclaveQuote, quote_bytes});
+
+        httpparser::Response att_response;
+        string str_response = iasRequest.report((Agent *) &agent, payload, att_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Request attestation report ****************/\n");
+            eputs(str_response.c_str());
+        }
+
+        /**************** Process attestation report, generate message 4 ****************/
+        const vector<uint8_t> msg4_bytes = spAttEnclave.process_msg3(msg3_bytes, str_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 4 ****************/\n");
+            hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
+        }
+
+        codecIo.write(msg4_bytes);
     }
 
-    /**************** Send message 2 ****************/
-    codecIo.write(msg2_bytes);
 
-    /**************** Read message 3 ****************/
-    vector<uint8_t> msg3_bytes = codecIo.read();
-    const sgx_ra_msg3_t &msg3 = *(sgx_ra_msg3_t *) msg3_bytes.data();
+    { // SC 5
+        /**************** Receive message 4 ****************/
+        vector<uint8_t> msg4_bytes = codecIo.read();
+        const ra_msg4_t &msg4 = *(ra_msg4_t *) msg4_bytes.data();
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Receive message 3 ****************/\n");
-        hexdump(stderr, msg3_bytes.data(), msg3_bytes.size());
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 4 ****************/\n");
+            hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
+        }
+
+        if (msg4.status == Trusted) {
+            cout << "Trusted" << endl;
+        }
     }
-
-    /**************** Request attestation report ****************/
-    vector<uint8_t> quote_bytes(msg3.quote, msg3.quote + msg3_bytes.size() - sizeof(sgx_ra_msg3_t));
-    map<Attestation_Evidence_Payload, vector<uint8_t >> payload;
-    payload.insert({isvEnclaveQuote, quote_bytes});
-
-    httpparser::Response att_response;
-    string str_response = iasRequest.report((Agent *) &agent, payload, att_response);
-
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Request attestation report ****************/\n");
-        eputs(str_response.c_str());
-    }
-
-    /**************** Process attestation report, generate message 4 ****************/
-    const vector<uint8_t> msg4_bytes = spAttEnclave.process_msg3(msg3_bytes, str_response);
-
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Generate message 4 ****************/\n");
-        hexdump(stderr, msg4_bytes.data(), msg4_bytes.size());
-    }
-
-    codecIo.write(msg4_bytes);
 }
 
 void client_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) {
@@ -177,57 +238,136 @@ void client_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
     sp_att_enclave spAttEnclave(eid, userArgs);
     isv_att_enclave isvAttEnclave(eid, userArgs);
 
+    IAS_Request iasRequest(userArgs.get_ias_primary_subscription_key(), userArgs.get_ias_secondary_subscription_key(),
+                           userArgs.get_query_ias_production());
+    AgentWget agent(userArgs.get_sgx_verbose(), userArgs.get_sgx_debug());
+
+    
     if (userArgs.get_sgx_debug()) {
         fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
     }
 
-    /**************** Generate message 0 and 1 ****************/
-    const uint32_t msg0 = isvAttEnclave.generate_msg0();
-    vector<uint8_t> msg01_bytes((uint8_t *) &msg0, (uint8_t *) &msg0 + sizeof(uint32_t));
-    const vector<uint8_t> msg1_bytes = isvAttEnclave.generate_msg1();
+    { // CS 1
+        /**************** Generate message 0 and 1 ****************/
+        const uint32_t msg0 = isvAttEnclave.generate_msg0();
+        vector<uint8_t> msg01_bytes((uint8_t *) &msg0, (uint8_t *) &msg0 + sizeof(uint32_t));
+        const vector<uint8_t> msg1_bytes = isvAttEnclave.generate_msg1();
 
-    /**************** Send message 0 and 1 ****************/
-    msg01_bytes.insert(msg01_bytes.end(), msg1_bytes.begin(), msg1_bytes.end());
+        /**************** Send message 0 and 1 ****************/
+        msg01_bytes.insert(msg01_bytes.end(), msg1_bytes.begin(), msg1_bytes.end());
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Generate message 0 and 1 ****************/\n");
-        hexdump(stderr, msg01_bytes.data(), msg01_bytes.size());
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
+        }
+
+        codecIo.write(msg01_bytes);
     }
 
-    codecIo.write(msg01_bytes);
+    { // SC 2
+        /**************** Receive message 0 and 1 ****************/
+        bytes msg01_bytes = codecIo.read();
+        const ra_msg01_t &msg01 = *(const ra_msg01_t *) msg01_bytes.data();
 
-    /**************** Receive message 2 ****************/
-    vector<uint8_t> msg2_bytes = codecIo.read();
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 0 and 1 ****************/\n");
+            hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
+        }
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Receive message 2 ****************/\n");
-        hexdump(stderr, msg2_bytes.data(), msg2_bytes.size());
+        /**************** Request sigrl ****************/
+        httpparser::Response sigrl_response;
+        string sigrl = iasRequest.sigrl((Agent *) &agent, *(uint32_t *) msg01.msg1.gid, sigrl_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Request sigrl ****************/\n");
+            eputs(sigrl.c_str());
+        }
+
+        /**************** Process message 0 and 1, generate message 2 ****************/
+        const vector<uint8_t> msg2_bytes = spAttEnclave.process_msg01(msg01_bytes, sigrl);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 2 ****************/\n");
+            hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
+        }
+
+        /**************** Send message 2 ****************/
+        codecIo.write(msg2_bytes);
     }
 
-    /**************** Generate message 3 ****************/
-    const vector<uint8_t> msg3_bytes = isvAttEnclave.generate_msg3(msg2_bytes);
+    { // CS 3
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Generate message 0 and 1 ****************/\n");
-        hexdump(stderr, msg3_bytes.data(), msg3_bytes.size());
+        /**************** Receive message 2 ****************/
+        vector<uint8_t> msg2_bytes = codecIo.read();
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 2 ****************/\n");
+            hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
+        }
+
+        /**************** Generate message 3 ****************/
+        const vector<uint8_t> msg3_bytes = isvAttEnclave.generate_msg3(msg2_bytes);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
+        }
+        /**************** Send message 3 ****************/
+        codecIo.write(msg3_bytes);
+
+        if (userArgs.get_sgx_debug()) {
+            fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
+        }
+
     }
-    /**************** Send message 3 ****************/
-    codecIo.write(msg3_bytes);
 
-    if (userArgs.get_sgx_debug()) {
-        fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
+    { // CS 4
+        /**************** Read message 3 ****************/
+        vector<uint8_t> msg3_bytes = codecIo.read();
+        const sgx_ra_msg3_t &msg3 = *(sgx_ra_msg3_t *) msg3_bytes.data();
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 3 ****************/\n");
+            hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
+        }
+
+        /**************** Request attestation report ****************/
+        vector<uint8_t> quote_bytes(msg3.quote, msg3.quote + msg3_bytes.size() - sizeof(sgx_ra_msg3_t));
+        map<Attestation_Evidence_Payload, vector<uint8_t >> payload;
+        payload.insert({isvEnclaveQuote, quote_bytes});
+
+        httpparser::Response att_response;
+        string str_response = iasRequest.report((Agent *) &agent, payload, att_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Request attestation report ****************/\n");
+            eputs(str_response.c_str());
+        }
+
+        /**************** Process attestation report, generate message 4 ****************/
+        const vector<uint8_t> msg4_bytes = spAttEnclave.process_msg3(msg3_bytes, str_response);
+
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Generate message 4 ****************/\n");
+            hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
+        }
+
+        codecIo.write(msg4_bytes);
     }
 
-    /**************** Receive message 4 ****************/
-    vector<uint8_t> msg4_bytes = codecIo.read();
-    const ra_msg4_t &msg4 = *(ra_msg4_t *) msg4_bytes.data();
 
-    if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Receive message 4 ****************/\n");
-        hexdump(stderr, msg4_bytes.data(), msg4_bytes.size());
-    }
+    { // CS 5
+        /**************** Receive message 4 ****************/
+        vector<uint8_t> msg4_bytes = codecIo.read();
+        const ra_msg4_t &msg4 = *(ra_msg4_t *) msg4_bytes.data();
 
-    if (msg4.status == Trusted) {
-        cout << "Trusted" << endl;
+        if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
+            eputs("/**************** Receive message 4 ****************/\n");
+            hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
+        }
+
+        if (msg4.status == Trusted) {
+            cout << "Trusted" << endl;
+        }
     }
 }
