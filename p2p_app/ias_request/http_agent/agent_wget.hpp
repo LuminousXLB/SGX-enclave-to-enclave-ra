@@ -8,7 +8,7 @@
 #include <sys/wait.h>
 #include <system_error>
 #include "agent.h"
-#include "message/rio.hpp"
+#include "rio.hpp"
 #include "httpparser/httpresponseparser.h"
 
 using namespace httpparser;

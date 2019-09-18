@@ -6,7 +6,7 @@
 #define SGX_ENCLAVE_TO_ENCLAVE_RA_BUSINESS_H
 
 
-#include <message/codec_io.hpp>
+#include <codec_io.hpp>
 #include <sgx_eid.h>
 
 #define MESSAGE_LENGTH 256

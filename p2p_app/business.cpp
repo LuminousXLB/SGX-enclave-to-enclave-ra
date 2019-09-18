@@ -7,7 +7,7 @@
 #include <cstring>
 #include "business.h"
 #include <p2p_enclave_u.h>
-#include <common.h>
+#include <hexdump.h>
 
 using namespace std;
 

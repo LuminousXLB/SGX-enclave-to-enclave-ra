@@ -10,7 +10,6 @@
 #include "config.h"
 #include "p2p_enclave_u.h"
 #include "sgx_utils/sgx_exception.hpp"
-#include "common.h"
 
 using namespace std;
 

@@ -7,14 +7,14 @@
 #include <sgx_utils/sgx_utils.h>
 #include "config.h"
 #include "protocol.h"
-#include "message/socket.hpp"
-#include "message/codec_io.hpp"
+#include "socket.hpp"
+#include "codec_io.hpp"
 #include "sp_att_enclave.hpp"
 #include "isv_att_enclave.hpp"
 #include "ias_request/http_agent/agent_wget.hpp"
 #include "ias_request/httpparser/response.h"
 #include "ias_request/ias_request.hpp"
-#include "common.h"
+#include <hexdump.h>
 #include "business.h"
 
 void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
@@ -126,7 +126,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         msg01_bytes.insert(msg01_bytes.end(), msg1_bytes.begin(), msg1_bytes.end());
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            puts("/**************** Generate message 0 and 1 ****************/\n");
             hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
         }
 
@@ -139,7 +139,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         const ra_msg01_t &msg01 = *(const ra_msg01_t *) msg01_bytes.data();
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Receive message 0 and 1 ****************/\n");
+            puts("/**************** Receive message 0 and 1 ****************/\n");
             hexdump(stdout, msg01_bytes.data(), msg01_bytes.size());
         }
 
@@ -148,15 +148,15 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         string sigrl = iasRequest.sigrl((Agent *) &agent, *(uint32_t *) msg01.msg1.gid, sigrl_response);
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Request sigrl ****************/\n");
-            eputs(sigrl.c_str());
+            puts("/**************** Request sigrl ****************/\n");
+            puts(sigrl.c_str());
         }
 
         /**************** Process message 0 and 1, generate message 2 ****************/
         const bytes msg2_bytes = spAttEnclave.process_msg01(msg01_bytes, sigrl);
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Generate message 2 ****************/\n");
+            puts("/**************** Generate message 2 ****************/\n");
             hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
         }
 
@@ -170,7 +170,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         bytes msg2_bytes = codecIo.read();
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Receive message 2 ****************/\n");
+            puts("/**************** Receive message 2 ****************/\n");
             hexdump(stdout, msg2_bytes.data(), msg2_bytes.size());
         }
 
@@ -178,7 +178,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         const bytes msg3_bytes = isvAttEnclave.generate_msg3(msg2_bytes);
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Generate message 0 and 1 ****************/\n");
+            puts("/**************** Generate message 0 and 1 ****************/\n");
             hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
         }
         /**************** Send message 3 ****************/
@@ -196,7 +196,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         const sgx_ra_msg3_t &msg3 = *(sgx_ra_msg3_t *) msg3_bytes.data();
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Receive message 3 ****************/\n");
+            puts("/**************** Receive message 3 ****************/\n");
             hexdump(stdout, msg3_bytes.data(), msg3_bytes.size());
         }
 
@@ -209,15 +209,15 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
         string str_response = iasRequest.report((Agent *) &agent, payload, att_response);
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Request attestation report ****************/\n");
-            eputs(str_response.c_str());
+            puts("/**************** Request attestation report ****************/\n");
+            puts(str_response.c_str());
         }
 
         /**************** Process attestation report, generate message 4 ****************/
         const bytes msg4_bytes = spAttEnclave.process_msg3(msg3_bytes, str_response);
 
         if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-            eputs("/**************** Generate message 4 ****************/\n");
+            puts("/**************** Generate message 4 ****************/\n");
             hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
         }
 
@@ -230,7 +230,7 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) 
     const ra_msg4_t &msg4 = *(ra_msg4_t *) msg4_bytes.data();
 
     if (userArgs.get_sgx_verbose() && userArgs.get_sgx_debug()) {
-        eputs("/**************** Receive message 4 ****************/\n");
+        puts("/**************** Receive message 4 ****************/\n");
         hexdump(stdout, msg4_bytes.data(), msg4_bytes.size());
     }
 

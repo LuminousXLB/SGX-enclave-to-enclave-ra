@@ -1,5 +1,4 @@
-#include "common.h"
-#include "logfile.h"
+#include <cstdio>
 #include "p2p_enclave_u.h"
 
 using namespace std;
@@ -16,18 +15,19 @@ int ocall_fputs(OutputTarget target, const char *str) {
             return fputs(str, stdout);
         case TO_STDERR:
             return fputs(str, stderr);
-        case TO_APPLOG:
-            return fputs(str, fplog);
-        default:
-            return fputs(str, fplog);
+//        case TO_APPLOG:
+//            return fputs(str, fplog);
+//        default:
+//            return fputs(str, fplog);
     }
+    return -1;
 }
 
 void ocall_eputs(const char *macro_file, const char *macro_function, int macro_line, const char *message) {
     if (message) {
-        eprintf("[%4d] %s: %s - %s\n", macro_line, macro_file, macro_function, message);
+        printf("[%4d] %s: %s - %s\n", macro_line, macro_file, macro_function, message);
     } else {
-        eprintf("[%4d] %s: %s\n", macro_line, macro_file, macro_function);
+        printf("[%4d] %s: %s\n", macro_line, macro_file, macro_function);
     }
 }
 
