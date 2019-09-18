@@ -50,6 +50,8 @@ enclave {
 
         public sgx_status_t ecall_sp_proc_msg3([in, size=msg3_size] const sgx_ra_msg3_t *msg3, uint32_t msg3_size, [in, string] const char *attestation_report, ra_trust_policy policy, [out] ra_msg4_t *msg4, [out] attestation_error_t *att_error);
 
+        public sgx_status_t ecall_init_share_key(sgx_ra_context_t ctx, [out, size=256] sgx_sha256_hash_t *hash);
+
 	};
 
 	untrusted {

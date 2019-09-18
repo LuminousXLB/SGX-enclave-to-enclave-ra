@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include "sp_routines.h"
 #include "p2p_enclave_t.h"
+#include "utils/crypto_utils.h"
 #include <tlibc/mbusafecrt.h>
 #include <string>
 
@@ -26,7 +27,7 @@ static const sgx_ec256_private_t service_private_key = {
 };
 
 ra_secret_t secret;
-
+sgx_ra_key_128_t final_key[2];
 
 sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_type,
                                  ra_msg01_t msg01, const char *sigrl, uint32_t sigrl_size,
@@ -61,15 +62,7 @@ sgx_status_t ecall_sp_proc_msg01(sgx_spid_t spid, sgx_quote_sign_type_t quote_ty
 sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, const char *attestation_report,
                                 ra_trust_policy policy, ra_msg4_t *msg4, attestation_error_t *att_error) {
 
-    if (!attestation_report || !att_error) {
-        return SGX_ERROR_INVALID_PARAMETER;
-    }
-
-    if (!msg3 ) {
-        return SGX_ERROR_INVALID_PARAMETER;
-    }
-
-    if (!msg4 ) {
+    if (!attestation_report || !att_error || !msg3 || !msg4) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
 
@@ -88,6 +81,48 @@ sgx_status_t ecall_sp_proc_msg3(const sgx_ra_msg3_t *msg3, uint32_t msg3_size, c
     /* build msg4 */
     const string attestation_response = attestation_report;
     status = private_build_msg4(secret, attestation_response, policy, *msg4, *att_error);
+    check_sgx_status(status);
+
+    return status;
+}
+
+sgx_status_t ecall_init_share_key(sgx_ra_context_t ctx, sgx_sha256_hash_t *hash) {
+    sgx_status_t status = SGX_SUCCESS;
+
+    sgx_ra_key_128_t key_arr1[2];
+
+    status = sgx_ra_get_keys(ctx, SGX_RA_KEY_MK, &key_arr1[0]);
+    check_sgx_status(status);
+
+    status = sgx_ra_get_keys(ctx, SGX_RA_KEY_SK, &key_arr1[1]);
+    check_sgx_status(status);
+
+    sgx_ra_key_128_t key_arr2[2];
+
+    status = derive_key(DERIVE_KEY_MK, secret.shared_secret, key_arr2[0]);
+    check_sgx_status(status);
+
+    status = derive_key(DERIVE_KEY_SK, secret.shared_secret, key_arr2[1]);
+    check_sgx_status(status);
+
+
+    /* Now generate a SHA hash */
+    sgx_sha256_hash_t hash1;
+    status = sgx_sha256_msg((uint8_t *) key_arr1, sizeof(sgx_ra_key_128_t) * 2, &hash1);
+    check_sgx_status(status);
+
+    sgx_sha256_hash_t hash2;
+    status = sgx_sha256_msg((uint8_t *) key_arr2, sizeof(sgx_ra_key_128_t) * 2, &hash2);
+    check_sgx_status(status);
+
+
+    /* Let's be thorough */
+    auto *ptr0 = reinterpret_cast<uint8_t *>(&final_key[0]);
+    for (size_t i = 0; i < SGX_SHA256_HASH_SIZE; i++) {
+        ptr0[i] = hash1[i] ^ hash2[i];
+    }
+
+    status = sgx_sha256_msg((uint8_t *) final_key, sizeof(sgx_ra_key_128_t) * 2, hash);
     check_sgx_status(status);
 
     return status;

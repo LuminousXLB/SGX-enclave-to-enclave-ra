@@ -20,6 +20,10 @@ public:
         info = buffer;
     }
 
+    const char *what() const noexcept override {
+        return info.c_str();
+    }
+
 private:
     string error_str(sgx_status_t status) {
         switch (status) {

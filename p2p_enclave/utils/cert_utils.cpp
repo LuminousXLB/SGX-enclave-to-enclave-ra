@@ -1,14 +1,10 @@
-#include <tsgxsslio.h>
 #include <openssl/pem.h>
 #include "cert_utils.h"
 #include "urldecode.h"
 #include "io.h"
-#include "tSgxSSL_api.h"
-#include <cstdio>
 #include <openssl/err.h>
 #include <exception>
 #include <openssl/x509.h>
-#include "x509_vfy/x509_vfy.h"
 
 using namespace std;
 
