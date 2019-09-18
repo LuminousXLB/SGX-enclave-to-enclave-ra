@@ -7,6 +7,7 @@
 #define SOCKET_RIO_HPP
 
 #include <unistd.h>
+#include <system_error>
 #include <cstring>
 #include <string>
 
@@ -14,6 +15,7 @@
  * The Rio package - Robust I/O functions
  ****************************************/
 
+using namespace std;
 #define RIO_BUFSIZE 4096
 
 class RobustIO {

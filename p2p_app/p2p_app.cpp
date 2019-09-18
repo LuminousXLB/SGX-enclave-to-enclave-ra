@@ -15,11 +15,9 @@
 #include "ias_request/httpparser/response.h"
 #include "ias_request/ias_request.hpp"
 #include "common.h"
+#include "business.h"
 
 void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
-
-void client_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
-
 
 void fprint_usage(FILE *fp, const char *executable) {
     fprintf(fp, "Usage: \n");
@@ -65,6 +63,7 @@ int main(int argc, char const *argv[]) {
             cout << "Connected to " << client_hostname << ":" << client_port << endl;
 
             server_attestation(fd, eid, userArgs);
+            server_business(fd, eid);
 
             Socket::disconnect(fd);
             cout << "Disconnected" << endl;
@@ -83,6 +82,7 @@ int main(int argc, char const *argv[]) {
         Socket socket(Socket::SOCKET_CLIENT, host, port);
 
         server_attestation(socket.get_file_decriptor(), eid, userArgs);
+        client_business(socket.get_file_decriptor(), eid);
 
         return 0;
     }

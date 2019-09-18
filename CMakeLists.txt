@@ -32,7 +32,7 @@ set(ISV_ENCLAVE_SRCS p2p_enclave/isv_enclave.cpp)
 
 # build enclave library
 add_enclave_library(Enclave_p2p
-        SRCS ${SP_ENCLAVE_SRCS} ${ISV_ENCLAVE_SRCS}
+        SRCS ${SP_ENCLAVE_SRCS} ${ISV_ENCLAVE_SRCS} p2p_enclave/app_enclave.cpp
         EDL p2p_enclave/p2p_enclave.edl
         EDL_SEARCH_PATHS ${EDL_SEARCH_PATHS})
 
@@ -47,7 +47,7 @@ enclave_sign(Enclave_p2p
 
 # build untrusted executable to run with enclave
 add_untrusted_executable(App_p2p
-        SRCS p2p_app/p2p_app.cpp p2p_app/sp_ocalls.cpp p2p_app/config.cpp
+        SRCS p2p_app/p2p_app.cpp p2p_app/sp_ocalls.cpp p2p_app/config.cpp p2p_app/business.cpp
         EDL p2p_enclave/p2p_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 

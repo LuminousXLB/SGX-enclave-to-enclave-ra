@@ -52,6 +52,10 @@ enclave {
 
         public sgx_status_t ecall_init_share_key(sgx_ra_context_t ctx, [out, size=256] sgx_sha256_hash_t *hash);
 
+        public sgx_status_t aes_ctr_128_encrypt([in, out, count=length] uint8_t *buffer, uint32_t length, [out]uint8_t nonce[16]);
+
+        public sgx_status_t aes_ctr_128_decrypt([in, out, count=length] uint8_t *buffer, uint32_t length, [in]uint8_t nonce[16]);
+
 	};
 
 	untrusted {
