@@ -12,7 +12,7 @@ bool check_file_path(const string &file_path) {
 }
 
 
-string file_in_search_path(const string &fileneme, const string &path) {
+string file_in_search_path(const string &filename, const string &path) {
     if (path.empty()) {
         return "";
     }
@@ -20,7 +20,7 @@ string file_in_search_path(const string &fileneme, const string &path) {
     char *str = strdup(path.c_str());
     for (char *p = strtok(str, ":"); p != nullptr; p = strtok(nullptr, ":")) {
         string full_path = p;
-        full_path.append("/").append(fileneme);
+        full_path.append("/").append(filename);
 
         if (check_file_path(full_path)) {
             free(str);

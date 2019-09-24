@@ -74,10 +74,10 @@ class RobustIO {
 
 public:
     /* Associate a descriptor with a read buffer and reset buffer */
-    RobustIO(int fd) : read_fd(fd), write_fd(fd), rio_cnt(0), rio_buf_idx(0), rio_buf{0} {}
+    explicit RobustIO(int fd) : read_fd(fd), write_fd(fd), rio_cnt(0), rio_buf_idx(0), rio_buf{0} {}
 
-    RobustIO(int read_fd, int write_fd) : read_fd(read_fd), write_fd(write_fd), rio_cnt(0), rio_buf_idx(0),
-                                          rio_buf{0} {}
+    RobustIO(int read_fd, int write_fd)
+            : read_fd(read_fd), write_fd(write_fd), rio_cnt(0), rio_buf_idx(0), rio_buf{0} {}
 
     /*
      * rio_writen - Robustly write n bytes (unbuffered)
@@ -206,7 +206,6 @@ public:
             usr_buf.insert(usr_buf.end(), rio_buf, rio_buf + rio_cnt);
             cnt += rio_cnt;
             rio_cnt = 0;
-
         }
 
         return cnt;

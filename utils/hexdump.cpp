@@ -1,5 +1,5 @@
 //
-// Created by ncl on 18/9/19.
+// http://www.cs.cmu.edu/~dst/DMCA/BNETD/bnetd-0.4.25/src/common/hexdump.c
 //
 
 #include "hexdump.h"
