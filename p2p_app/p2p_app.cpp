@@ -21,19 +21,21 @@ void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
 
 void fprint_usage(FILE *fp, const char *executable) {
     fprintf(fp, "Usage: \n");
-    fprintf(fp, "    %s server <port>", executable);
-    fprintf(fp, "    %s client <host> <port>", executable);
+    fprintf(fp, "    %s <toml config> server <port>", executable);
+    fprintf(fp, "    %s <toml config> client <host> <port>", executable);
 }
 
 
 int main(int argc, char const *argv[]) {
-    UserArgs userArgs = UserArgs();
+    if (argc < 2) {
+        fprint_usage(stderr, argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    const char *toml = argv[1];
+    UserArgs userArgs = UserArgs(toml);
 
     sgx_enclave_id_t eid;
-
-    if (userArgs.get_sgx_debug()) {
-        fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
-    }
 
     /* Enclave Initialization */
     if (initialize_enclave(&eid, "Enclave_p2p.token", "Enclave_p2p.signed.so") < 0) {
@@ -41,12 +43,8 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    if (userArgs.get_sgx_debug()) {
-        fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
-    }
-
-    if (argc == 3 && *argv[1] == 's') {
-        const char *port = argv[2];
+    if (argc == 4 && *argv[2] == 's') {
+        const char *port = argv[3];
 
         if (userArgs.get_sgx_debug()) {
             fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
@@ -76,9 +74,10 @@ int main(int argc, char const *argv[]) {
         fprintf(stderr, "%s [%4d] %s\n", __FILE__, __LINE__, __FUNCTION__);
     }
 
-    if (argc == 4 && *argv[1] == 'c') {
-        const char *host = argv[2];
-        const char *port = argv[3];
+    if (argc == 5 && *argv[2] == 'c') {
+        const char *host = argv[3];
+        const char *port = argv[4];
+
         Socket socket(Socket::SOCKET_CLIENT, host, port);
 
         server_attestation(socket.get_file_decriptor(), eid, userArgs);

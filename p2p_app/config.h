@@ -9,22 +9,6 @@
 using namespace std;
 
 
-#define MODE_ATTEST     0x0
-#define MODE_EPID       0x1
-#define MODE_QUOTE      0x2
-
-#define OPT_PSE         0x01
-#define OPT_NONCE       0x02
-#define OPT_LINK        0x04
-#define OPT_PUBKEY      0x08
-
-/* Macros to set, clear, and get the mode and options */
-
-#define SET_OPT(x, y)   x|=y
-#define CLEAR_OPT(x, y) x=x&~y
-#define OPT_ISSET(x, y) x&y
-
-
 typedef struct config_struct {
     char mode;
     uint32_t flags;
@@ -50,34 +34,12 @@ struct UserArgs {
     T search_numeric(const string &name) const;
 
     map<string, int> numeric_map;
-
-//    {"QUERY_IAS_PRODUCTION",              false, TYPE_BOOL},
-//    {"CLIENT_RANDOM_NONCE",               false, TYPE_BOOL},
-//    {"CLIENT_USE_PLATFORM_SERVICES",      false, TYPE_BOOL},
-//    {"POLICY_ALLOW_DEBUG",                false, TYPE_BOOL},
-//    {"POLICY_ALLOW_CONFIGURATION_NEEDED", false, TYPE_BOOL},
-//    {"SGX_VERBOSE",                       false, TYPE_BOOL},
-//    {"SGX_DEBUG",                         false, TYPE_BOOL}
-
-//    {"QUOTE_TYPE",                        false, TYPE_UINT16},
-//    {"POLICY_PRODUCT_ID",                 true,  TYPE_UINT16},
-//    {"POLICY_ISV_MIN_SVN",                false, TYPE_UINT16},
-
     map<string, array<char, 32>> h32_map;
-//    {"SPID",                              true,  TYPE_HEX32_BYTES},
-//    {"IAS_PRIMARY_SUBSCRIPTION_KEY",      true,  TYPE_HEX32_STRING},
-//    {"IAS_SECONDARY_SUBSCRIPTION_KEY",    true,  TYPE_HEX32_STRING},
-
-    array<uint8_t, 32> POLICY_MRSIGNER;
-//    {"POLICY_MRSIGNER",                   true,  TYPE_HEX64_BYTES},
+    array<uint8_t, 32> POLICY_MRSIGNER{};
     map<string, string> str_map;
 
 public:
-    UserArgs();
-
-    string get_bind_address() const;
-
-    string get_bind_port() const;
+    explicit UserArgs(const string &toml);
 
     bool get_query_ias_production() const;
 

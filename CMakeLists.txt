@@ -51,11 +51,8 @@ add_untrusted_executable(App_p2p
         EDL p2p_enclave/p2p_enclave.edl
         EDL_SEARCH_PATHS Enclave})
 
-#target_compile_options(p2p_app PRIVATE -Wno-pointer-to-int-cast)
-
 add_subdirectory(p2p_app/ias_request)
 
 target_include_directories(App_p2p PRIVATE ias_request)
-target_link_libraries(App_p2p sgx_utils hexdump)
-#hexutil logfile fileio message
+target_link_libraries(App_p2p sgx_utils hexdump cpptoml)
 add_dependencies(App_p2p Enclave_p2p-sign)

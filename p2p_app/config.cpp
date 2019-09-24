@@ -1,61 +1,129 @@
 #include <iostream>
 #include <cstdlib>
 #include "cppcodec/cppcodec/hex_default_lower.hpp"
-
+#include <cpptoml.h>
 #include "config.h"
 
-UserArgs::UserArgs() {
+UserArgs::UserArgs(const string &toml) {
+    shared_ptr<cpptoml::table> toml_config;
+    toml_config = cpptoml::parse_file(toml);
+
     enum UserVarType {
         TYPE_BOOL, TYPE_UINT16, TYPE_HEX32, TYPE_STRING, TYPE_OTHERS
     };
 
-    struct {
+    struct UserVarItem {
         string name;
         bool required;
         UserVarType type;
-    } var_defs[] = {
-            {"QUERY_IAS_PRODUCTION",              false, TYPE_BOOL},
-            {"SPID",                              true,  TYPE_HEX32},
-            {"QUOTE_TYPE",                        false, TYPE_UINT16},
-            {"CLIENT_RANDOM_NONCE",               false, TYPE_BOOL},
-            {"CLIENT_USE_PLATFORM_SERVICES",      false, TYPE_BOOL},
-            {"IAS_PRIMARY_SUBSCRIPTION_KEY",      true,  TYPE_HEX32},
-            {"IAS_SECONDARY_SUBSCRIPTION_KEY",    true,  TYPE_HEX32},
-            {"POLICY_MRSIGNER",                   true,  TYPE_OTHERS},
-            {"POLICY_PRODUCT_ID",                 true,  TYPE_UINT16},
-            {"POLICY_ISV_MIN_SVN",                false, TYPE_UINT16},
-            {"POLICY_ALLOW_DEBUG",                false, TYPE_BOOL},
-            {"POLICY_ALLOW_CONFIGURATION_NEEDED", false, TYPE_BOOL},
-            {"SGX_VERBOSE",                       false, TYPE_BOOL},
-            {"SGX_DEBUG",                         false, TYPE_BOOL}
     };
 
-    for (const auto &var :var_defs) {
-        const char *env_p = getenv(var.name.c_str());
-        if (env_p) {
-            switch (var.type) {
-                case TYPE_BOOL:
-                case TYPE_UINT16:
-                    numeric_map.insert({var.name, parse_int(env_p)});
-                    break;
-                case TYPE_HEX32:
-                    h32_map.insert({var.name, check_hstr<32>(env_p)});
-                    break;
-                case TYPE_STRING:
-                    str_map.insert({var.name, env_p});
-                    break;
-                default:
-                    if (var.name == "POLICY_MRSIGNER") {
-                        hex::decode(&POLICY_MRSIGNER[0], POLICY_MRSIGNER.size(), string(env_p));
-                    } else {
-                        exit(EXIT_FAILURE);
-                    }
+    map<string, vector<UserVarItem>> var_table{
+            {"client",
+                      {
+                              {"CLIENT_RANDOM_NONCE",  false, TYPE_BOOL},
+                              {"CLIENT_USE_PLATFORM_SERVICES", false, TYPE_BOOL},
+                      }
+            },
+            {
+             "service_provider",
+                      {
+                              {"QUERY_IAS_PRODUCTION", false, TYPE_BOOL},
+                              {"SPID",                         true,  TYPE_HEX32},
+                              {"QUOTE_TYPE",         false, TYPE_UINT16},
+                              {"IAS_PRIMARY_SUBSCRIPTION_KEY", true,  TYPE_HEX32},
+                              {"IAS_SECONDARY_SUBSCRIPTION_KEY",    true,  TYPE_HEX32},
+                      }
+            },
+            {
+             "trust_policy",
+                      {
+                              {"POLICY_MRSIGNER",      true,  TYPE_OTHERS},
+                              {"POLICY_PRODUCT_ID",            true,  TYPE_UINT16},
+                              {"POLICY_ISV_MIN_SVN", false, TYPE_UINT16},
+                              {"POLICY_ALLOW_DEBUG",           false, TYPE_BOOL},
+                              {"POLICY_ALLOW_CONFIGURATION_NEEDED", false, TYPE_BOOL},
+                      }
+            },
+            {
+             "debug", {
+                              {"VERBOSE",          false, TYPE_BOOL},
+                              {"DEBUG",                    false, TYPE_BOOL},
+                      }
             }
-        } else if (var.required) {
-            cerr << "Cannot find required ENV: " << var.name << endl;
-            exit(EXIT_FAILURE);
+    };
+
+    for (const auto &category:var_table) {
+        auto toml_category = toml_config->get_table(category.first);
+
+        for (const auto &var_def: category.second) {
+
+            if (toml_category->contains(var_def.name)) {
+                switch (var_def.type) {
+                    case TYPE_BOOL: {
+                        auto val = toml_category->get_as<bool>(var_def.name);
+                        numeric_map.insert({var_def.name, *val});
+                        break;
+                    }
+                    case TYPE_UINT16: {
+                        auto val = toml_category->get_as<uint16_t>(var_def.name);
+                        numeric_map.insert({var_def.name, *val});
+                        break;
+                    }
+                    case TYPE_HEX32: {
+                        auto val = toml_category->get_as<string>(var_def.name);
+                        h32_map.insert({var_def.name, check_hstr<32>(*val)});
+                        break;
+                    }
+                    case TYPE_STRING: {
+                        auto val = toml_category->get_as<string>(var_def.name);
+                        str_map.insert({var_def.name, *val});
+                        break;
+                    }
+                    case TYPE_OTHERS:
+                        if (var_def.name == "POLICY_MRSIGNER") {
+                            auto val = toml_category->get_as<string>(var_def.name);
+                            hex::decode(&POLICY_MRSIGNER[0], POLICY_MRSIGNER.size(), *val);
+                        } else {
+                            cerr << "Unexpected parameter: " << var_def.name << " in " << category.first << endl;
+                            exit(EXIT_FAILURE);
+                        }
+                }
+            } else {
+                if (var_def.required) {
+                    cerr << "Cannot find required parameter: " << var_def.name << " in " << category.first << endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
         }
     }
+//
+//    for (const auto &var :var_defs) {
+//        const char *env_p = getenv(var.name.c_str());
+//        if (env_p) {
+//            switch (var.type) {
+//                case TYPE_BOOL:
+//                case TYPE_UINT16:
+//                    numeric_map.insert({var.name, parse_int(env_p)});
+//                    break;
+//                case TYPE_HEX32:
+//                    h32_map.insert({var.name, check_hstr<32>(env_p)});
+//                    break;
+//                case TYPE_STRING:
+//                    str_map.insert({var.name, env_p});
+//                    break;
+//                default:
+//                    if (var.name == "POLICY_MRSIGNER") {
+//                        hex::decode(&POLICY_MRSIGNER[0], POLICY_MRSIGNER.size(), string(env_p));
+//                    } else {
+//                        exit(EXIT_FAILURE);
+//                    }
+//            }
+//        } else if (var.required) {
+//            cerr << "Cannot find required ENV: " << var.name << endl;
+//            exit(EXIT_FAILURE);
+//        }
+//    }
 }
 
 int UserArgs::parse_int(const string &str) {
