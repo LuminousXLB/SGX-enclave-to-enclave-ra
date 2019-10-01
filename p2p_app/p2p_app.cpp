@@ -17,7 +17,7 @@
 #include <hexdump.h>
 #include "business.h"
 
-void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
+void mutual_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs);
 
 void fprint_usage(FILE *fp, const char *executable) {
     fprintf(fp, "Usage: \n");
@@ -60,7 +60,7 @@ int main(int argc, char const *argv[]) {
         while (int fd = socket.serve(client_hostname, client_port)) {
             cout << "Connected to " << client_hostname << ":" << client_port << endl;
 
-            server_attestation(fd, eid, userArgs);
+            mutual_attestation(fd, eid, userArgs);
             server_business(fd, eid);
 
             Socket::disconnect(fd);
@@ -80,7 +80,7 @@ int main(int argc, char const *argv[]) {
 
         Socket socket(Socket::SOCKET_CLIENT, host, port);
 
-        server_attestation(socket.get_file_decriptor(), eid, userArgs);
+        mutual_attestation(socket.get_file_decriptor(), eid, userArgs);
         client_business(socket.get_file_decriptor(), eid);
 
         return 0;
@@ -97,7 +97,7 @@ int main(int argc, char const *argv[]) {
 ///////////////////////////////////////////////////////////////////////////////
 using bytes = vector<uint8_t>;
 
-void server_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) {
+void mutual_attestation(int fd, sgx_enclave_id_t eid, const UserArgs &userArgs) {
     CodecIO codecIo(fd);
     sp_att_enclave spAttEnclave(eid, userArgs);
     isv_att_enclave isvAttEnclave(eid, userArgs);

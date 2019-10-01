@@ -47,8 +47,8 @@ UserArgs::UserArgs(const string &toml) {
             },
             {
              "debug", {
-                              {"VERBOSE",          false, TYPE_BOOL},
-                              {"DEBUG",                    false, TYPE_BOOL},
+                              {"VERBOSE",              false, TYPE_BOOL},
+                              {"DEBUG",                        false, TYPE_BOOL},
                       }
             }
     };
@@ -97,33 +97,6 @@ UserArgs::UserArgs(const string &toml) {
             }
         }
     }
-//
-//    for (const auto &var :var_defs) {
-//        const char *env_p = getenv(var.name.c_str());
-//        if (env_p) {
-//            switch (var.type) {
-//                case TYPE_BOOL:
-//                case TYPE_UINT16:
-//                    numeric_map.insert({var.name, parse_int(env_p)});
-//                    break;
-//                case TYPE_HEX32:
-//                    h32_map.insert({var.name, check_hstr<32>(env_p)});
-//                    break;
-//                case TYPE_STRING:
-//                    str_map.insert({var.name, env_p});
-//                    break;
-//                default:
-//                    if (var.name == "POLICY_MRSIGNER") {
-//                        hex::decode(&POLICY_MRSIGNER[0], POLICY_MRSIGNER.size(), string(env_p));
-//                    } else {
-//                        exit(EXIT_FAILURE);
-//                    }
-//            }
-//        } else if (var.required) {
-//            cerr << "Cannot find required ENV: " << var.name << endl;
-//            exit(EXIT_FAILURE);
-//        }
-//    }
 }
 
 int UserArgs::parse_int(const string &str) {
